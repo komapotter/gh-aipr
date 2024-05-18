@@ -2,7 +2,10 @@ module github.com/komapotter/gh-aipr
 
 go 1.22.2
 
-require github.com/cli/go-gh/v2 v2.9.0
+require (
+	github.com/cli/go-gh/v2 v2.9.0
+	github.com/kelseyhightower/envconfig v1.4.0
+)
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
