@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/kelseyhightower/envconfig"
 
 	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/cli/go-gh/v2/pkg/repository"
 )
 
 const openAIURL = "https://api.openai.com/v1/chat/completions"
@@ -24,15 +24,26 @@ type Config struct {
 var verbose bool // Global flag to control verbose output
 
 func getGitDiff() (string, error) {
-	// Determine the default branch
-	defaultBranchCmd := exec.Command("sh", "-c", "git remote show origin | awk '/HEAD branch/ {print $NF}'")
-	var defaultBranchOut bytes.Buffer
-	defaultBranchCmd.Stdout = &defaultBranchOut
-	err := defaultBranchCmd.Run()
+	// Determine the default branch using go-gh
+	client, err := api.DefaultRESTClient()
 	if err != nil {
 		return "", err
 	}
-	defaultBranch := strings.TrimSpace(defaultBranchOut.String())
+	repo, err := repository.Current()
+	if err != nil {
+		return "", err
+	}
+	var repoInfo struct {
+		DefaultBranch string `json:"default_branch"`
+	}
+	err = client.Get(fmt.Sprintf("repos/%s/%s", repo.Owner, repo.Name), &repoInfo)
+	if err != nil {
+		return "", err
+	}
+	defaultBranch := repoInfo.DefaultBranch
+	if err != nil {
+		return "", err
+	}
 
 	// Get the git diff with the default branch
 	diffCmd := exec.Command("git", "diff", "origin/"+defaultBranch)
@@ -57,20 +68,6 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "-v" {
 		verbose = true
 	}
-
-	fmt.Println("hi world, this is the gh-aipr extension!")
-	client, err := api.DefaultRESTClient()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	response := struct{ Login string }{}
-	err = client.Get("user", &response)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("running as %s\n", response.Login)
 
 	diffOutput, err := getGitDiff()
 	if err != nil {
