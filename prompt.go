@@ -6,6 +6,7 @@ import "fmt"
 func CreateOpenAIQuestion(diffOutput string) string {
 	prompt := `
 Please generate appropriate pull request message based on the context.
+(Do not output the result of git diff)
 
 Here is a sample of pull-request format.
 
