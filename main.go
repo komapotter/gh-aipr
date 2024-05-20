@@ -56,6 +56,13 @@ func getGitDiff() (string, error) {
 	return diffOut.String(), nil
 }
 
+func printHelp() {
+	fmt.Println("Usage: go run main.go [options]")
+	fmt.Println("Options:")
+	fmt.Println("  -h, --help     Show this help message")
+	fmt.Println("  -v, --verbose  Enable verbose output")
+}
+
 func main() {
 	var config Config
 	err := envconfig.Process("", &config)
@@ -65,8 +72,13 @@ func main() {
 	}
 
 	verbose = false // Default verbose to false
-	if len(os.Args) > 1 && os.Args[1] == "-v" {
-		verbose = true
+	if len(os.Args) > 1 {
+		if os.Args[1] == "-h" || os.Args[1] == "--help" {
+			printHelp()
+			return
+		} else if os.Args[1] == "-v" || os.Args[1] == "--verbose" {
+			verbose = true
+		}
 	}
 
 	diffOutput, err := getGitDiff()
