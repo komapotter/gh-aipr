@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/kelseyhightower/envconfig"
 
@@ -95,7 +96,7 @@ func getCurrentBranch() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return branchOut.String(), nil
+	return strings.TrimSpace(branchOut.String()), nil
 }
 
 func createPullRequest(title, body string, defaultBranch string) error {
