@@ -127,6 +127,17 @@ func main() {
 		fmt.Println(body)
 	}
 }
+func getCurrentBranch() (string, error) {
+	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	var branchOut bytes.Buffer
+	branchCmd.Stdout = &branchOut
+	err := branchCmd.Run()
+	if err != nil {
+		return "", err
+	}
+	return branchOut.String(), nil
+}
+
 func createPullRequest(title, body string) error {
 	client, err := api.DefaultRESTClient()
 	if err != nil {
@@ -137,11 +148,16 @@ func createPullRequest(title, body string) error {
 		return err
 	}
 
+	currentBranch, err := getCurrentBranch()
+	if err != nil {
+		return err
+	}
+
 	prData := map[string]interface{}{
 		"title": title,
 		"body":  body,
-		"head":  "feature-branch", // Replace with the actual feature branch name
-		"base":  "main",           // Replace with the actual base branch name
+		"head":  currentBranch,
+		"base":  "main", // Replace with the actual base branch name
 	}
 
 	payloadBytes, err := json.Marshal(prData)
