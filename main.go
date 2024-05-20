@@ -2,8 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"flag"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/kelseyhightower/envconfig"
@@ -21,7 +22,10 @@ type Config struct {
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
 }
 
-var verbose bool // Global flag to control verbose output
+var (
+	verbose bool // Global flag to control verbose output
+	create  bool // Global flag to control pull request creation
+)
 
 func getGitDiff() (string, error) {
 	// Determine the default branch using go-gh
@@ -88,14 +92,13 @@ func main() {
 		return
 	}
 
-	verbose = false // Default verbose to false
-	if len(os.Args) > 1 {
-		if os.Args[1] == "-h" || os.Args[1] == "--help" {
-			printHelp()
-			return
-		} else if os.Args[1] == "-v" || os.Args[1] == "--verbose" {
-			verbose = true
-		}
+	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
+	flag.BoolVar(&create, "create", false, "Create a pull request")
+	flag.Parse()
+
+	if flag.NArg() > 0 && (flag.Arg(0) == "-h" || flag.Arg(0) == "--help") {
+		printHelp()
+		return
 	}
 
 	diffOutput, err := getGitDiff()
@@ -111,9 +114,41 @@ func main() {
 		return
 	}
 
-	fmt.Println("Generated Pull Request Title:")
-	fmt.Println(title)
-	fmt.Println("")
-	fmt.Println("Generated Pull Request Description:")
-	fmt.Println(body)
+	if create {
+		err = createPullRequest(title, body)
+		if err != nil {
+			fmt.Println("Error creating pull request:", err)
+		}
+	} else {
+		fmt.Println("Generated Pull Request Title:")
+		fmt.Println(title)
+		fmt.Println("")
+		fmt.Println("Generated Pull Request Description:")
+		fmt.Println(body)
+	}
+}
+func createPullRequest(title, body string) error {
+	client, err := api.DefaultRESTClient()
+	if err != nil {
+		return err
+	}
+	repo, err := repository.Current()
+	if err != nil {
+		return err
+	}
+
+	prData := map[string]interface{}{
+		"title": title,
+		"body":  body,
+		"head":  "feature-branch", // Replace with the actual feature branch name
+		"base":  "main",           // Replace with the actual base branch name
+	}
+
+	payloadBytes, err := json.Marshal(prData)
+	if err != nil {
+		return err
+	}
+	bodyReader := bytes.NewReader(payloadBytes)
+
+	return client.Post(fmt.Sprintf("repos/%s/%s/pulls", repo.Owner, repo.Name), bodyReader, nil)
 }
