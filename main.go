@@ -99,19 +99,19 @@ func getCurrentBranch() (string, error) {
 	return strings.TrimSpace(branchOut.String()), nil
 }
 
-func createPullRequest(title, body string, defaultBranch string) error {
+func createPullRequest(title, body string, defaultBranch string) (int, error) {
 	client, err := api.DefaultRESTClient()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	repo, err := repository.Current()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	currentBranch, err := getCurrentBranch()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	prData := map[string]interface{}{
@@ -124,11 +124,18 @@ func createPullRequest(title, body string, defaultBranch string) error {
 
 	payloadBytes, err := json.Marshal(prData)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	bodyReader := bytes.NewReader(payloadBytes)
 
-	return client.Post(fmt.Sprintf("repos/%s/%s/pulls", repo.Owner, repo.Name), bodyReader, nil)
+	var prResponse struct {
+		Number int `json:"number"`
+	}
+	err = client.Post(fmt.Sprintf("repos/%s/%s/pulls", repo.Owner, repo.Name), bodyReader, &prResponse)
+	if err != nil {
+		return 0, err
+	}
+	return prResponse.Number, nil
 }
 
 func main() {
@@ -168,9 +175,11 @@ func main() {
 	}
 
 	if create {
-		err = createPullRequest(title, body, defaultBranch)
+		prNumber, err := createPullRequest(strings.TrimPrefix(title, "## "), body, defaultBranch)
 		if err != nil {
 			fmt.Println("Error creating pull request:", err)
+		} else {
+			fmt.Println(prNumber)
 		}
 	} else {
 		fmt.Println("Generated Pull Request Title:")
