@@ -105,12 +105,15 @@ func main() {
 	}
 
 	question := CreateOpenAIQuestion(diffOutput)
-	responseText, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, question, verbose)
+	title, body, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, question, verbose)
 	if err != nil {
 		fmt.Println("Error asking OpenAI:", err)
 		return
 	}
 
-	fmt.Println("Generated Pull Request Title and Description:")
-	fmt.Println(responseText)
+	fmt.Println("Generated Pull Request Title:")
+	fmt.Println(title)
+	fmt.Println("")
+	fmt.Println("Generated Pull Request Description:")
+	fmt.Println(body)
 }
