@@ -27,6 +27,30 @@ var (
 	create  bool // Global flag to control pull request creation
 )
 
+func printHelp() {
+	helpMessage := `
+This program generates a pull request title and description based on the git diff with the default branch.
+
+USAGE
+  gh aipr [flags]
+
+FLAGS
+  --help     Show help for command
+  --verbose  Enable verbose output
+
+EXAMPLES
+  $ gh aipr --help
+  $ gh aipr --verbose
+
+ENVIRONMENT VARIABLES
+  OPENAI_API_KEY         Your OpenAI API key (required)
+  OPENAI_MODEL           The OpenAI model to use (default: gpt-4o)
+  OPENAI_TEMPERATURE     The temperature to use for the OpenAI model (default: 0.1)
+  OPENAI_MAX_TOKENS      The maximum number of tokens to use for the OpenAI model (default: 450)
+`
+	fmt.Println(helpMessage)
+}
+
 func getDefaultBranch() (string, error) {
 	client, err := api.DefaultRESTClient()
 	if err != nil {
@@ -63,30 +87,6 @@ func getGitDiff() (string, error) {
 	return diffOut.String(), nil
 }
 
-func printHelp() {
-	helpMessage := `
-This program generates a pull request title and description based on the git diff with the default branch.
-
-USAGE
-  gh aipr [flags]
-
-FLAGS
-  --help     Show help for command
-  --verbose  Enable verbose output
-
-EXAMPLES
-  $ gh aipr --help
-  $ gh aipr --verbose
-
-ENVIRONMENT VARIABLES
-  OPENAI_API_KEY         Your OpenAI API key (required)
-  OPENAI_MODEL           The OpenAI model to use (default: gpt-4o)
-  OPENAI_TEMPERATURE     The temperature to use for the OpenAI model (default: 0.1)
-  OPENAI_MAX_TOKENS      The maximum number of tokens to use for the OpenAI model (default: 450)
-`
-	fmt.Println(helpMessage)
-}
-
 func getCurrentBranch() (string, error) {
 	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	var branchOut bytes.Buffer
@@ -117,8 +117,9 @@ func createPullRequest(title, body string, defaultBranch string) error {
 		"title": title,
 		"body":  body,
 		"head":  currentBranch,
-		"base":  "origin/" + defaultBranch, // Use the default branch
+		"base":  defaultBranch, // Use the default branch
 	}
+	//fmt.Printf("prData: %+v", prData)
 
 	payloadBytes, err := json.Marshal(prData)
 	if err != nil {
@@ -151,7 +152,6 @@ func main() {
 		fmt.Println("Error getting default branch:", err)
 		return
 	}
-	fmt.Println("Default Branch:", defaultBranch)
 
 	diffOutput, err := getGitDiff()
 	if err != nil {
