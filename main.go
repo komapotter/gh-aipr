@@ -57,10 +57,27 @@ func getGitDiff() (string, error) {
 }
 
 func printHelp() {
-	fmt.Println("Usage: go run main.go [options]")
-	fmt.Println("Options:")
-	fmt.Println("  -h, --help     Show this help message")
-	fmt.Println("  -v, --verbose  Enable verbose output")
+	helpMessage := `
+This program generates a pull request title and description based on the git diff with the default branch.
+
+USAGE
+  gh aipr [flags]
+
+FLAGS
+  --help     Show help for command
+  --verbose  Enable verbose output
+
+EXAMPLES
+  $ gh aipr --help
+  $ gh aipr --verbose
+
+ENVIRONMENT VARIABLES
+  OPENAI_API_KEY         Your OpenAI API key (required)
+  OPENAI_MODEL           The OpenAI model to use (default: gpt-4o)
+  OPENAI_TEMPERATURE     The temperature to use for the OpenAI model (default: 0.1)
+  OPENAI_MAX_TOKENS      The maximum number of tokens to use for the OpenAI model (default: 450)
+`
+	fmt.Println(helpMessage)
 }
 
 func main() {
