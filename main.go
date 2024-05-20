@@ -2,8 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"flag"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/kelseyhightower/envconfig"
@@ -21,10 +22,12 @@ type Config struct {
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
 }
 
-var verbose bool // Global flag to control verbose output
+var (
+	verbose bool // Global flag to control verbose output
+	create  bool // Global flag to control pull request creation
+)
 
-func getGitDiff() (string, error) {
-	// Determine the default branch using go-gh
+func getDefaultBranch() (string, error) {
 	client, err := api.DefaultRESTClient()
 	if err != nil {
 		return "", err
@@ -40,7 +43,11 @@ func getGitDiff() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defaultBranch := repoInfo.DefaultBranch
+	return repoInfo.DefaultBranch, nil
+}
+
+func getGitDiff() (string, error) {
+	defaultBranch, err := getDefaultBranch()
 	if err != nil {
 		return "", err
 	}
@@ -80,6 +87,48 @@ ENVIRONMENT VARIABLES
 	fmt.Println(helpMessage)
 }
 
+func getCurrentBranch() (string, error) {
+	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	var branchOut bytes.Buffer
+	branchCmd.Stdout = &branchOut
+	err := branchCmd.Run()
+	if err != nil {
+		return "", err
+	}
+	return branchOut.String(), nil
+}
+
+func createPullRequest(title, body string, defaultBranch string) error {
+	client, err := api.DefaultRESTClient()
+	if err != nil {
+		return err
+	}
+	repo, err := repository.Current()
+	if err != nil {
+		return err
+	}
+
+	currentBranch, err := getCurrentBranch()
+	if err != nil {
+		return err
+	}
+
+	prData := map[string]interface{}{
+		"title": title,
+		"body":  body,
+		"head":  currentBranch,
+		"base":  "origin/" + defaultBranch, // Use the default branch
+	}
+
+	payloadBytes, err := json.Marshal(prData)
+	if err != nil {
+		return err
+	}
+	bodyReader := bytes.NewReader(payloadBytes)
+
+	return client.Post(fmt.Sprintf("repos/%s/%s/pulls", repo.Owner, repo.Name), bodyReader, nil)
+}
+
 func main() {
 	var config Config
 	err := envconfig.Process("", &config)
@@ -88,15 +137,21 @@ func main() {
 		return
 	}
 
-	verbose = false // Default verbose to false
-	if len(os.Args) > 1 {
-		if os.Args[1] == "-h" || os.Args[1] == "--help" {
-			printHelp()
-			return
-		} else if os.Args[1] == "-v" || os.Args[1] == "--verbose" {
-			verbose = true
-		}
+	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
+	flag.BoolVar(&create, "create", false, "Create a pull request")
+	flag.Parse()
+
+	if flag.NArg() > 0 && (flag.Arg(0) == "-h" || flag.Arg(0) == "--help") {
+		printHelp()
+		return
 	}
+
+	defaultBranch, err := getDefaultBranch()
+	if err != nil {
+		fmt.Println("Error getting default branch:", err)
+		return
+	}
+	fmt.Println("Default Branch:", defaultBranch)
 
 	diffOutput, err := getGitDiff()
 	if err != nil {
@@ -105,12 +160,22 @@ func main() {
 	}
 
 	question := CreateOpenAIQuestion(diffOutput)
-	responseText, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, question, verbose)
+	title, body, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, question, verbose)
 	if err != nil {
 		fmt.Println("Error asking OpenAI:", err)
 		return
 	}
 
-	fmt.Println("Generated Pull Request Title and Description:")
-	fmt.Println(responseText)
+	if create {
+		err = createPullRequest(title, body, defaultBranch)
+		if err != nil {
+			fmt.Println("Error creating pull request:", err)
+		}
+	} else {
+		fmt.Println("Generated Pull Request Title:")
+		fmt.Println(title)
+		fmt.Println("")
+		fmt.Println("Generated Pull Request Description:")
+		fmt.Println(body)
+	}
 }
