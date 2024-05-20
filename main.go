@@ -27,8 +27,7 @@ var (
 	create  bool // Global flag to control pull request creation
 )
 
-func getGitDiff() (string, error) {
-	// Determine the default branch using go-gh
+func getDefaultBranch() (string, error) {
 	client, err := api.DefaultRESTClient()
 	if err != nil {
 		return "", err
@@ -44,7 +43,11 @@ func getGitDiff() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defaultBranch := repoInfo.DefaultBranch
+	return repoInfo.DefaultBranch, nil
+}
+
+func getGitDiff() (string, error) {
+	defaultBranch, err := getDefaultBranch()
 	if err != nil {
 		return "", err
 	}
@@ -84,49 +87,6 @@ ENVIRONMENT VARIABLES
 	fmt.Println(helpMessage)
 }
 
-func main() {
-	var config Config
-	err := envconfig.Process("", &config)
-	if err != nil {
-		fmt.Printf("Failed to process environment variables: %s\n", err)
-		return
-	}
-
-	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
-	flag.BoolVar(&create, "create", false, "Create a pull request")
-	flag.Parse()
-
-	if flag.NArg() > 0 && (flag.Arg(0) == "-h" || flag.Arg(0) == "--help") {
-		printHelp()
-		return
-	}
-
-	diffOutput, err := getGitDiff()
-	if err != nil {
-		fmt.Println("Error getting git diff:", err)
-		return
-	}
-
-	question := CreateOpenAIQuestion(diffOutput)
-	title, body, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, question, verbose)
-	if err != nil {
-		fmt.Println("Error asking OpenAI:", err)
-		return
-	}
-
-	if create {
-		err = createPullRequest(title, body)
-		if err != nil {
-			fmt.Println("Error creating pull request:", err)
-		}
-	} else {
-		fmt.Println("Generated Pull Request Title:")
-		fmt.Println(title)
-		fmt.Println("")
-		fmt.Println("Generated Pull Request Description:")
-		fmt.Println(body)
-	}
-}
 func getCurrentBranch() (string, error) {
 	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	var branchOut bytes.Buffer
@@ -138,7 +98,7 @@ func getCurrentBranch() (string, error) {
 	return branchOut.String(), nil
 }
 
-func createPullRequest(title, body string) error {
+func createPullRequest(title, body string, defaultBranch string) error {
 	client, err := api.DefaultRESTClient()
 	if err != nil {
 		return err
@@ -157,7 +117,7 @@ func createPullRequest(title, body string) error {
 		"title": title,
 		"body":  body,
 		"head":  currentBranch,
-		"base":  "main", // Replace with the actual base branch name
+		"base":  "origin/" + defaultBranch, // Use the default branch
 	}
 
 	payloadBytes, err := json.Marshal(prData)
@@ -167,4 +127,55 @@ func createPullRequest(title, body string) error {
 	bodyReader := bytes.NewReader(payloadBytes)
 
 	return client.Post(fmt.Sprintf("repos/%s/%s/pulls", repo.Owner, repo.Name), bodyReader, nil)
+}
+
+func main() {
+	var config Config
+	err := envconfig.Process("", &config)
+	if err != nil {
+		fmt.Printf("Failed to process environment variables: %s\n", err)
+		return
+	}
+
+	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
+	flag.BoolVar(&create, "create", false, "Create a pull request")
+	flag.Parse()
+
+	if flag.NArg() > 0 && (flag.Arg(0) == "-h" || flag.Arg(0) == "--help") {
+		printHelp()
+		return
+	}
+
+	defaultBranch, err := getDefaultBranch()
+	if err != nil {
+		fmt.Println("Error getting default branch:", err)
+		return
+	}
+	fmt.Println("Default Branch:", defaultBranch)
+
+	diffOutput, err := getGitDiff()
+	if err != nil {
+		fmt.Println("Error getting git diff:", err)
+		return
+	}
+
+	question := CreateOpenAIQuestion(diffOutput)
+	title, body, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, question, verbose)
+	if err != nil {
+		fmt.Println("Error asking OpenAI:", err)
+		return
+	}
+
+	if create {
+		err = createPullRequest(title, body, defaultBranch)
+		if err != nil {
+			fmt.Println("Error creating pull request:", err)
+		}
+	} else {
+		fmt.Println("Generated Pull Request Title:")
+		fmt.Println(title)
+		fmt.Println("")
+		fmt.Println("Generated Pull Request Description:")
+		fmt.Println(body)
+	}
 }
