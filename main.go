@@ -38,6 +38,7 @@ USAGE
 FLAGS
   --help     Show help for command
   --verbose  Enable verbose output
+  --create   Create a pull request
 
 EXAMPLES
   $ gh aipr --help
@@ -146,11 +147,13 @@ func main() {
 		return
 	}
 
+	var showHelp bool
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
 	flag.BoolVar(&create, "create", false, "Create a pull request")
+	flag.BoolVar(&showHelp, "help", false, "Show help for command")
 	flag.Parse()
 
-	if flag.NArg() > 0 && (flag.Arg(0) == "-h" || flag.Arg(0) == "--help") {
+	if showHelp {
 		printHelp()
 		return
 	}
