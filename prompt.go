@@ -2,15 +2,22 @@ package main
 
 import "fmt"
 
-func CreateOpenAIQuestion(promptType, diffOutput string) string {
-	if promptType == "title" {
+type PromptType int
+
+const (
+	PrTitle PromptType = iota
+	PrBody
+)
+
+func CreateOpenAIQuestion(promptType PromptType, diffOutput string) string {
+	if promptType == PrTitle {
 		return fmt.Sprintf(`
 Please generate an appropriate pull request title based on the context.
 (Output only the title in one line.)
 (Do not output the result of git diff)
 
 %s`, diffOutput)
-	} else if promptType == "body" {
+	} else if promptType == PrBody {
 		return fmt.Sprintf(`
 Please generate an appropriate pull request description based on the context.
 (Do not output the result of git diff)

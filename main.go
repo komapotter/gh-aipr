@@ -170,8 +170,8 @@ func main() {
 		return
 	}
 
-	titlePrompt := CreateOpenAIQuestion("title", diffOutput)
-	bodyPrompt := CreateOpenAIQuestion("body", diffOutput)
+	titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput)
+	bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput)
 	title, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
 	if err != nil {
 		fmt.Println("Error asking OpenAI for title:", err)
