@@ -27,6 +27,7 @@ var (
 	verbose   bool // Global flag to control verbose output
 	create    bool // Global flag to control pull request creation
 	titleOnly bool // Global flag to control title-only output
+	bodyOnly  bool // Global flag to control body-only output
 )
 
 func printHelp() {
@@ -41,6 +42,7 @@ FLAGS
   --verbose   Enable verbose output
   --create    Create a pull request
   --title     Output only the title
+  --body      Output only the body
 
 EXAMPLES
   $ gh aipr --help
@@ -154,6 +156,7 @@ func main() {
 	flag.BoolVar(&create, "create", false, "Create a pull request")
 	flag.BoolVar(&showHelp, "help", false, "Show help for command")
 	flag.BoolVar(&titleOnly, "title", false, "Output only the title")
+	flag.BoolVar(&bodyOnly, "body", false, "Output only the body")
 	flag.Parse()
 
 	if showHelp {
@@ -186,16 +189,19 @@ func main() {
 		return
 	}
 
-	if titleOnly {
-		fmt.Println("Generated Pull Request Title:")
-		fmt.Println(title)
-	} else if create {
+	if create {
 		prNumber, err := createPullRequest(title, body, defaultBranch)
 		if err != nil {
 			fmt.Println("Error creating pull request:", err)
 		} else {
 			fmt.Println(prNumber)
 		}
+	} else if titleOnly {
+		fmt.Println("Generated Pull Request Title:")
+		fmt.Println(title)
+	} else if bodyOnly {
+		fmt.Println("Generated Pull Request Description:")
+		fmt.Println(body)
 	} else {
 		fmt.Println("Generated Pull Request Title:")
 		fmt.Println(title)
