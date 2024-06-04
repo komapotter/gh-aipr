@@ -30,7 +30,7 @@ type OpenAIResponse struct {
 	} `json:"choices"`
 }
 
-func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, string, error) {
+func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
 		Model:       openAIModel,       // Use the model from the configuration
@@ -39,30 +39,30 @@ func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	body := bytes.NewReader(payloadBytes)
 
 	req, err := http.NewRequest("POST", openAIURL, body)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+openAIKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("received non-OK HTTP status from OpenAI: %s", resp.Status)
+		return "", fmt.Errorf("received non-OK HTTP status from OpenAI: %s", resp.Status)
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	if verbose {
@@ -71,21 +71,15 @@ func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float
 
 	var apiResp OpenAIResponse
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	if len(apiResp.Choices) > 0 && apiResp.Choices[0].Message.Role == "assistant" {
 		// Extract the content from the assistant's message
 		//fmt.Println(apiResp.Choices[0].Message.Content)
 		responseContent := strings.TrimSpace(apiResp.Choices[0].Message.Content)
-		parts := strings.SplitN(responseContent, "\n", 3)
-		if len(parts) < 2 {
-			return "", "", fmt.Errorf("response format is incorrect")
-		}
-		title := strings.TrimSpace(parts[1])
-		body := strings.TrimSpace(parts[2])
-		return title, body, nil
+		return responseContent, nil
 	}
 
-	return "", "", fmt.Errorf("no response from OpenAI")
+	return "", fmt.Errorf("no response from OpenAI")
 }
