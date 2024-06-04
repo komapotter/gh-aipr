@@ -2,18 +2,22 @@ package main
 
 import "fmt"
 
-// CreateOpenAIQuestion formats a question for the OpenAI API based on the git diff output.
-func CreateOpenAIQuestion(diffOutput string) string {
-	prompt := `
-Please generate appropriate pull request message based on the context.
+func CreateOpenAIQuestion(promptType, diffOutput string) string {
+	if promptType == "title" {
+		return fmt.Sprintf(`
+Please generate an appropriate pull request title based on the context.
+(Output only the title in one line.)
 (Do not output the result of git diff)
 
-Here is a sample of pull-request format.
+%s`, diffOutput)
+	} else if promptType == "body" {
+		return fmt.Sprintf(`
+Please generate an appropriate pull request description based on the context.
+(Do not output the result of git diff)
+
+Here is a sample of pull-request description format.
 
 ---
-## Pull Request Title
-
-
 ## Description
 
 * desc 
@@ -36,7 +40,7 @@ Here is a sample of pull-request format.
 - desc
 
 ---
-
-%s`
-	return fmt.Sprintf(prompt, diffOutput)
+%s`, diffOutput)
+	}
+	return ""
 }

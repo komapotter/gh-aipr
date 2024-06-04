@@ -170,10 +170,16 @@ func main() {
 		return
 	}
 
-	question := CreateOpenAIQuestion(diffOutput)
-	title, body, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, question, verbose)
+	titlePrompt := CreateOpenAIQuestion("title", diffOutput)
+	bodyPrompt := CreateOpenAIQuestion("body", diffOutput)
+	title, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
 	if err != nil {
-		fmt.Println("Error asking OpenAI:", err)
+		fmt.Println("Error asking OpenAI for title:", err)
+		return
+	}
+	body, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, bodyPrompt, verbose)
+	if err != nil {
+		fmt.Println("Error asking OpenAI for body:", err)
 		return
 	}
 
