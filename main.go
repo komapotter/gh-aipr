@@ -184,7 +184,7 @@ func main() {
 	}
 
 	if create {
-		prNumber, err := createPullRequest(strings.TrimPrefix(title, "## "), body, defaultBranch)
+		prNumber, err := createPullRequest(title, body, defaultBranch)
 		if err != nil {
 			fmt.Println("Error creating pull request:", err)
 		} else {
