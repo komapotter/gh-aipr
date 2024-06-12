@@ -13,7 +13,7 @@ func CreateOpenAIQuestion(promptType PromptType, diffOutput string, japanise boo
 	if japanise {
 		if promptType == PrTitle {
 			return fmt.Sprintf(`
-プルリクエストのタイトルを生成してください。
+コンテキストに基づいて適切なプルリクエストのタイトルを生成してください。
 （タイトルのみを一行で出力してください。）
 （git diffの結果を出力しないでください。）
 
