@@ -179,14 +179,40 @@ func main() {
 		return
 	}
 
+	var title, body string
+
+	if titleOnly {
+		titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
+		title, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
+		if err != nil {
+			fmt.Println("Error asking OpenAI for title:", err)
+			return
+		}
+		fmt.Println("Generated Pull Request Title:")
+		fmt.Println(title)
+		return
+	}
+
+	if bodyOnly {
+		bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
+		body, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, bodyPrompt, verbose)
+		if err != nil {
+			fmt.Println("Error asking OpenAI for body:", err)
+			return
+		}
+		fmt.Println("Generated Pull Request Description:")
+		fmt.Println(body)
+		return
+	}
+
 	titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
 	bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
-	title, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
+	title, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
 	if err != nil {
 		fmt.Println("Error asking OpenAI for title:", err)
 		return
 	}
-	body, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, bodyPrompt, verbose)
+	body, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, bodyPrompt, verbose)
 	if err != nil {
 		fmt.Println("Error asking OpenAI for body:", err)
 		return
@@ -199,12 +225,6 @@ func main() {
 		} else {
 			fmt.Println(prNumber)
 		}
-	} else if titleOnly {
-		fmt.Println("Generated Pull Request Title:")
-		fmt.Println(title)
-	} else if bodyOnly {
-		fmt.Println("Generated Pull Request Description:")
-		fmt.Println(body)
 	} else {
 		fmt.Println("Generated Pull Request Title:")
 		fmt.Println(title)
