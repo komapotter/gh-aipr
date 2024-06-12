@@ -28,6 +28,7 @@ var (
 	create    bool // Global flag to control pull request creation
 	titleOnly bool // Global flag to control title-only output
 	bodyOnly  bool // Global flag to control body-only output
+	japanise  bool // Global flag to control Japanese output
 )
 
 func printHelp() {
@@ -38,11 +39,13 @@ USAGE
   gh aipr [flags]
 
 FLAGS
-  --help      Show help for command
-  --verbose   Enable verbose output
-  --create    Create a pull request
-  --title     Output only the title
-  --body      Output only the body
+  --help       Show help for command
+  --verbose    Enable verbose output
+  --create     Create a pull request
+  --title      Output only the title
+  --body       Output only the body
+  --japanise   Output in Japanese
+  --japanise   Output in Japanese
 
 EXAMPLES
   $ gh aipr --help
@@ -157,6 +160,8 @@ func main() {
 	flag.BoolVar(&showHelp, "help", false, "Show help for command")
 	flag.BoolVar(&titleOnly, "title", false, "Output only the title")
 	flag.BoolVar(&bodyOnly, "body", false, "Output only the body")
+	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
+	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
 	flag.Parse()
 
 	if showHelp {
@@ -176,8 +181,8 @@ func main() {
 		return
 	}
 
-	titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput)
-	bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput)
+	titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
+	bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
 	title, err := AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
 	if err != nil {
 		fmt.Println("Error asking OpenAI for title:", err)
