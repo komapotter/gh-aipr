@@ -45,7 +45,6 @@ FLAGS
   --title      Output only the title
   --body       Output only the body
   --japanise   Output in Japanese
-  --japanise   Output in Japanese
 
 EXAMPLES
   $ gh aipr --help
@@ -160,7 +159,6 @@ func main() {
 	flag.BoolVar(&showHelp, "help", false, "Show help for command")
 	flag.BoolVar(&titleOnly, "title", false, "Output only the title")
 	flag.BoolVar(&bodyOnly, "body", false, "Output only the body")
-	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
 	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
 	flag.Parse()
 
