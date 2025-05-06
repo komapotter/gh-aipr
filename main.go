@@ -17,10 +17,20 @@ import (
 const openAIURL = "https://api.openai.com/v1/chat/completions"
 
 type Config struct {
-	OpenAIKey         string  `envconfig:"OPENAI_API_KEY" required:"true"`
+	// OpenAI configuration
+	OpenAIKey         string  `envconfig:"OPENAI_API_KEY"`
 	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
 	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
+	
+	// Anthropic configuration
+	AnthropicKey         string  `envconfig:"ANTHROPIC_API_KEY"`
+	AnthropicModel       string  `envconfig:"ANTHROPIC_MODEL" default:"claude-3-haiku-20240307"`
+	AnthropicTemperature float64 `envconfig:"ANTHROPIC_TEMPERATURE" default:"0.1"`
+	AnthropicMaxTokens   int     `envconfig:"ANTHROPIC_MAX_TOKENS" default:"450"`
+	
+	// API provider to use
+	Provider string `envconfig:"AI_PROVIDER" default:"openai"`
 }
 
 var (
@@ -39,22 +49,32 @@ USAGE
   gh aipr [flags]
 
 FLAGS
-  --help       Show help for command
-  --verbose    Enable verbose output
-  --create     Create a pull request
-  --title      Output only the title
-  --body       Output only the body
-  --japanise   Output in Japanese
+  --help         Show help for command
+  --verbose      Enable verbose output
+  --create       Create a pull request
+  --title        Output only the title
+  --body         Output only the body
+  --japanise     Output in Japanese
 
 EXAMPLES
   $ gh aipr --help
   $ gh aipr --verbose
 
 ENVIRONMENT VARIABLES
-  OPENAI_API_KEY         Your OpenAI API key (required)
+  # OpenAI configuration
+  OPENAI_API_KEY         Your OpenAI API key (required when using OpenAI)
   OPENAI_MODEL           The OpenAI model to use (default: gpt-4o)
   OPENAI_TEMPERATURE     The temperature to use for the OpenAI model (default: 0.1)
   OPENAI_MAX_TOKENS      The maximum number of tokens to use for the OpenAI model (default: 450)
+  
+  # Anthropic configuration
+  ANTHROPIC_API_KEY      Your Anthropic API key (required when using Anthropic)
+  ANTHROPIC_MODEL        The Anthropic model to use (default: claude-3-haiku-20240307)
+  ANTHROPIC_TEMPERATURE  The temperature to use for the Anthropic model (default: 0.1)
+  ANTHROPIC_MAX_TOKENS   The maximum number of tokens to use for the Anthropic model (default: 450)
+  
+  # General configuration
+  AI_PROVIDER            The AI provider to use (openai or anthropic, default: openai)
 `
 	fmt.Println(helpMessage)
 }
@@ -194,11 +214,12 @@ func main() {
 	promptSpinner.Start()
 	promptSpinner.Stop()
 
+
 	if titleOnly {
 		titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
-		title, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
+		title, err = AskAI(config, titlePrompt, verbose)
 		if err != nil {
-			fmt.Println("Error asking OpenAI for title:", err)
+			fmt.Printf("Error asking AI for title: %s\n", err)
 			return
 		}
 		fmt.Println("Generated Pull Request Title:")
@@ -208,9 +229,9 @@ func main() {
 
 	if bodyOnly {
 		bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
-		body, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, bodyPrompt, verbose)
+		body, err = AskAI(config, bodyPrompt, verbose)
 		if err != nil {
-			fmt.Println("Error asking OpenAI for body:", err)
+			fmt.Printf("Error asking AI for body: %s\n", err)
 			return
 		}
 		fmt.Println("Generated Pull Request Description:")
@@ -220,14 +241,14 @@ func main() {
 
 	titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
 	bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
-	title, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
+	title, err = AskAI(config, titlePrompt, verbose)
 	if err != nil {
-		fmt.Println("Error asking OpenAI for title:", err)
+		fmt.Printf("Error asking AI for title: %s\n", err)
 		return
 	}
-	body, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, bodyPrompt, verbose)
+	body, err = AskAI(config, bodyPrompt, verbose)
 	if err != nil {
-		fmt.Println("Error asking OpenAI for body:", err)
+		fmt.Printf("Error asking AI for body: %s\n", err)
 		return
 	}
 
