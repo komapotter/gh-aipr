@@ -6,7 +6,7 @@ import (
 )
 
 // AskAI is a unified function that routes requests to either OpenAI or Anthropic API
-// based on the configuration and command-line flags
+// based on the configuration
 func AskAI(config Config, question string, verbose bool) (string, error) {
 	// Determine which provider to use
 	provider := config.Provider
@@ -14,19 +14,13 @@ func AskAI(config Config, question string, verbose bool) (string, error) {
 		provider = "openai" // Default to OpenAI if not specified
 	}
 	
-	// Override provider if specified via command line
-	if provider != "" {
-		provider = strings.ToLower(provider)
-	}
+	provider = strings.ToLower(provider)
 	
 	// Route based on provider
 	switch provider {
 	case "openai":
 		// Determine which model to use
 		model := config.OpenAIModel
-		if modelName != "" {
-			model = modelName
-		}
 		
 		// Check if API key is available
 		if config.OpenAIKey == "" {
@@ -38,9 +32,6 @@ func AskAI(config Config, question string, verbose bool) (string, error) {
 	case "anthropic":
 		// Determine which model to use
 		model := config.AnthropicModel
-		if modelName != "" {
-			model = modelName
-		}
 		
 		// Check if API key is available
 		if config.AnthropicKey == "" {

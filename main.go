@@ -34,13 +34,11 @@ type Config struct {
 }
 
 var (
-	verbose   bool   // Global flag to control verbose output
-	create    bool   // Global flag to control pull request creation
-	titleOnly bool   // Global flag to control title-only output
-	bodyOnly  bool   // Global flag to control body-only output
-	japanise  bool   // Global flag to control Japanese output
-	modelName string // Global flag to specify the model name
-	provider  string // Global flag to specify the AI provider (openai or anthropic)
+	verbose   bool // Global flag to control verbose output
+	create    bool // Global flag to control pull request creation
+	titleOnly bool // Global flag to control title-only output
+	bodyOnly  bool // Global flag to control body-only output
+	japanise  bool // Global flag to control Japanese output
 )
 
 func printHelp() {
@@ -57,14 +55,10 @@ FLAGS
   --title        Output only the title
   --body         Output only the body
   --japanise     Output in Japanese
-  -m, --m        Specify the model name to use
-  -p, --p        Specify the AI provider to use (openai or anthropic)
 
 EXAMPLES
   $ gh aipr --help
   $ gh aipr --verbose
-  $ gh aipr -m gpt-4o
-  $ gh aipr -p anthropic -m claude-3-sonnet-20240229
 
 ENVIRONMENT VARIABLES
   # OpenAI configuration
@@ -186,8 +180,6 @@ func main() {
 	flag.BoolVar(&titleOnly, "title", false, "Output only the title")
 	flag.BoolVar(&bodyOnly, "body", false, "Output only the body")
 	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
-	flag.StringVar(&modelName, "m", "", "Specify the model name to use")
-	flag.StringVar(&provider, "p", "", "Specify the AI provider to use (openai or anthropic)")
 	flag.Parse()
 
 	if showHelp {
@@ -222,10 +214,6 @@ func main() {
 	promptSpinner.Start()
 	promptSpinner.Stop()
 
-	// If command line provider is specified, override config provider
-	if provider != "" {
-		config.Provider = provider
-	}
 
 	if titleOnly {
 		titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
