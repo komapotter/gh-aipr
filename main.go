@@ -17,18 +17,30 @@ import (
 const openAIURL = "https://api.openai.com/v1/chat/completions"
 
 type Config struct {
-	OpenAIKey         string  `envconfig:"OPENAI_API_KEY" required:"true"`
+	// OpenAI configuration
+	OpenAIKey         string  `envconfig:"OPENAI_API_KEY"`
 	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
 	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
+	
+	// Anthropic configuration
+	AnthropicKey         string  `envconfig:"ANTHROPIC_API_KEY"`
+	AnthropicModel       string  `envconfig:"ANTHROPIC_MODEL" default:"claude-3-haiku-20240307"`
+	AnthropicTemperature float64 `envconfig:"ANTHROPIC_TEMPERATURE" default:"0.1"`
+	AnthropicMaxTokens   int     `envconfig:"ANTHROPIC_MAX_TOKENS" default:"450"`
+	
+	// API provider to use
+	Provider string `envconfig:"AI_PROVIDER" default:"openai"`
 }
 
 var (
-	verbose   bool // Global flag to control verbose output
-	create    bool // Global flag to control pull request creation
-	titleOnly bool // Global flag to control title-only output
-	bodyOnly  bool // Global flag to control body-only output
-	japanise  bool // Global flag to control Japanese output
+	verbose   bool   // Global flag to control verbose output
+	create    bool   // Global flag to control pull request creation
+	titleOnly bool   // Global flag to control title-only output
+	bodyOnly  bool   // Global flag to control body-only output
+	japanise  bool   // Global flag to control Japanese output
+	modelName string // Global flag to specify the model name
+	provider  string // Global flag to specify the AI provider (openai or anthropic)
 )
 
 func printHelp() {
@@ -39,22 +51,36 @@ USAGE
   gh aipr [flags]
 
 FLAGS
-  --help       Show help for command
-  --verbose    Enable verbose output
-  --create     Create a pull request
-  --title      Output only the title
-  --body       Output only the body
-  --japanise   Output in Japanese
+  --help         Show help for command
+  --verbose      Enable verbose output
+  --create       Create a pull request
+  --title        Output only the title
+  --body         Output only the body
+  --japanise     Output in Japanese
+  -m, --m        Specify the model name to use
+  -p, --p        Specify the AI provider to use (openai or anthropic)
 
 EXAMPLES
   $ gh aipr --help
   $ gh aipr --verbose
+  $ gh aipr -m gpt-4o
+  $ gh aipr -p anthropic -m claude-3-sonnet-20240229
 
 ENVIRONMENT VARIABLES
-  OPENAI_API_KEY         Your OpenAI API key (required)
+  # OpenAI configuration
+  OPENAI_API_KEY         Your OpenAI API key (required when using OpenAI)
   OPENAI_MODEL           The OpenAI model to use (default: gpt-4o)
   OPENAI_TEMPERATURE     The temperature to use for the OpenAI model (default: 0.1)
   OPENAI_MAX_TOKENS      The maximum number of tokens to use for the OpenAI model (default: 450)
+  
+  # Anthropic configuration
+  ANTHROPIC_API_KEY      Your Anthropic API key (required when using Anthropic)
+  ANTHROPIC_MODEL        The Anthropic model to use (default: claude-3-haiku-20240307)
+  ANTHROPIC_TEMPERATURE  The temperature to use for the Anthropic model (default: 0.1)
+  ANTHROPIC_MAX_TOKENS   The maximum number of tokens to use for the Anthropic model (default: 450)
+  
+  # General configuration
+  AI_PROVIDER            The AI provider to use (openai or anthropic, default: openai)
 `
 	fmt.Println(helpMessage)
 }
@@ -160,6 +186,8 @@ func main() {
 	flag.BoolVar(&titleOnly, "title", false, "Output only the title")
 	flag.BoolVar(&bodyOnly, "body", false, "Output only the body")
 	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
+	flag.StringVar(&modelName, "m", "", "Specify the model name to use")
+	flag.StringVar(&provider, "p", "", "Specify the AI provider to use (openai or anthropic)")
 	flag.Parse()
 
 	if showHelp {
@@ -194,11 +222,16 @@ func main() {
 	promptSpinner.Start()
 	promptSpinner.Stop()
 
+	// If command line provider is specified, override config provider
+	if provider != "" {
+		config.Provider = provider
+	}
+
 	if titleOnly {
 		titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
-		title, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
+		title, err = AskAI(config, titlePrompt, verbose)
 		if err != nil {
-			fmt.Println("Error asking OpenAI for title:", err)
+			fmt.Printf("Error asking AI for title: %s\n", err)
 			return
 		}
 		fmt.Println("Generated Pull Request Title:")
@@ -208,9 +241,9 @@ func main() {
 
 	if bodyOnly {
 		bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
-		body, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, bodyPrompt, verbose)
+		body, err = AskAI(config, bodyPrompt, verbose)
 		if err != nil {
-			fmt.Println("Error asking OpenAI for body:", err)
+			fmt.Printf("Error asking AI for body: %s\n", err)
 			return
 		}
 		fmt.Println("Generated Pull Request Description:")
@@ -220,14 +253,14 @@ func main() {
 
 	titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
 	bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
-	title, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, titlePrompt, verbose)
+	title, err = AskAI(config, titlePrompt, verbose)
 	if err != nil {
-		fmt.Println("Error asking OpenAI for title:", err)
+		fmt.Printf("Error asking AI for title: %s\n", err)
 		return
 	}
-	body, err = AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, bodyPrompt, verbose)
+	body, err = AskAI(config, bodyPrompt, verbose)
 	if err != nil {
-		fmt.Println("Error asking OpenAI for body:", err)
+		fmt.Printf("Error asking AI for body: %s\n", err)
 		return
 	}
 
