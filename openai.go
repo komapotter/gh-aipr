@@ -31,6 +31,11 @@ type OpenAIResponse struct {
 }
 
 func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
+	// Start the spinner
+	spinner := NewSpinner("Asking AI")
+	spinner.Start()
+	defer spinner.Stop()
+
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
 		Model:       openAIModel,       // Use the model from the configuration
