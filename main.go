@@ -173,13 +173,26 @@ func main() {
 		return
 	}
 
+	// Start the spinner for git diff
+	diffSpinner := NewSpinner("Getting git diff")
+	diffSpinner.Start()
+	
 	diffOutput, err := getGitDiff()
+	
+	// Stop the spinner
+	diffSpinner.Stop()
+	
 	if err != nil {
 		fmt.Println("Error getting git diff:", err)
 		return
 	}
 
 	var title, body string
+
+	// Create a spinner for the prompt creation step
+	promptSpinner := NewSpinner("Creating prompts")
+	promptSpinner.Start()
+	promptSpinner.Stop()
 
 	if titleOnly {
 		titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
@@ -219,7 +232,14 @@ func main() {
 	}
 
 	if create {
+		// Add spinner for PR creation
+		prSpinner := NewSpinner("Creating pull request")
+		prSpinner.Start()
+		
 		prNumber, err := createPullRequest(title, body, defaultBranch)
+		
+		prSpinner.Stop()
+		
 		if err != nil {
 			fmt.Println("Error creating pull request:", err)
 		} else {
