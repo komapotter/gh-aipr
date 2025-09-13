@@ -39,6 +39,7 @@ var (
 	titleOnly bool // Global flag to control title-only output
 	bodyOnly  bool // Global flag to control body-only output
 	japanise  bool // Global flag to control Japanese output
+	issueNo   int  // Global flag for the issue number
 )
 
 func printHelp() {
@@ -55,6 +56,7 @@ FLAGS
   --title        Output only the title
   --body         Output only the body
   --japanise     Output in Japanese
+  --issue-no     Associate an issue number with the pull request
 
 EXAMPLES
   $ gh aipr --help
@@ -165,6 +167,27 @@ func createPullRequest(title, body string, defaultBranch string) (int, error) {
 	return prResponse.Number, nil
 }
 
+func getIssue(issueNo int) (string, error) {
+	issueCmd := exec.Command("gh", "issue", "view", fmt.Sprintf("%d", issueNo))
+	var issueOut bytes.Buffer
+	issueCmd.Stdout = &issueOut
+	err := issueCmd.Run()
+	if err != nil {
+		return "", err
+	}
+	return issueOut.String(), nil
+}
+
+func confirm(prompt string) bool {
+	var response string
+	fmt.Print(prompt)
+	_, err := fmt.Scanln(&response)
+	if err != nil {
+		return false
+	}
+	return strings.ToLower(response) == "y"
+}
+
 func main() {
 	var config Config
 	err := envconfig.Process("", &config)
@@ -180,11 +203,24 @@ func main() {
 	flag.BoolVar(&titleOnly, "title", false, "Output only the title")
 	flag.BoolVar(&bodyOnly, "body", false, "Output only the body")
 	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
+	flag.IntVar(&issueNo, "issue-no", 0, "Issue number to associate with the pull request")
 	flag.Parse()
 
 	if showHelp {
 		printHelp()
 		return
+	}
+
+	if issueNo != 0 {
+		issue, err := getIssue(issueNo)
+		if err != nil {
+			fmt.Println("Error getting issue:", err)
+			return
+		}
+		fmt.Println(issue)
+		if !confirm("Create pull request with this issue? (y/N): ") {
+			return
+		}
 	}
 
 	defaultBranch, err := getDefaultBranch()
@@ -250,6 +286,10 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error asking AI for body: %s\n", err)
 		return
+	}
+
+	if issueNo != 0 {
+		body = fmt.Sprintf("#%d\n%s", issueNo, body)
 	}
 
 	if create {
