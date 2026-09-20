@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/cli/go-gh/v2/pkg/repository"
+	"github.com/komapotter/gh-aipr/internal/auth"
 )
 
 const openAIURL = "https://api.openai.com/v1/chat/completions"
@@ -23,15 +25,15 @@ type Config struct {
 	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
 	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
-	
+
 	// Anthropic configuration
 	AnthropicKey         string  `envconfig:"ANTHROPIC_API_KEY"`
 	AnthropicModel       string  `envconfig:"ANTHROPIC_MODEL" default:"claude-3-haiku-20240307"`
 	AnthropicTemperature float64 `envconfig:"ANTHROPIC_TEMPERATURE" default:"0.1"`
 	AnthropicMaxTokens   int     `envconfig:"ANTHROPIC_MAX_TOKENS" default:"450"`
-	
-	// API provider to use
-	Provider string `envconfig:"AI_PROVIDER" default:"openai"`
+
+	// API provider to use ("openai" or "anthropic"); resolved with config/keyring if unset
+	Provider string `envconfig:"AI_PROVIDER"`
 }
 
 var (
@@ -49,6 +51,7 @@ This program generates a pull request title and description based on the git dif
 
 USAGE
   gh aipr [flags]
+  gh aipr auth <command>
 
 FLAGS
   --help         Show help for command
@@ -60,26 +63,42 @@ FLAGS
   --japanise     Output in Japanese
   --issue-no     Associate an issue number with the pull request
 
+AUTH COMMANDS
+  gh aipr auth register   Store an API key in the OS keyring
+  gh aipr auth remove     Remove a stored API key from the OS keyring
+  gh aipr auth status     Show registered providers and the active provider
+  gh aipr auth switch     Switch active provider (openai or anthropic)
+
+API KEY RESOLUTION ORDER
+  1. Environment variables (OPENAI_API_KEY / ANTHROPIC_API_KEY / AI_PROVIDER)
+  2. OS keyring + local config (~/.config/gh-aipr/config.yml)
+  3. Error suggesting: gh aipr auth register
+
+Existing env-only workflows keep working without auth register.
+On macOS, the first Keychain access may show a permission dialog.
+
 EXAMPLES
   $ gh aipr --help
   $ gh aipr --version
   $ gh aipr --verbose
+  $ gh aipr auth register -p openai
+  $ gh aipr auth status
 
 ENVIRONMENT VARIABLES
   # OpenAI configuration
-  OPENAI_API_KEY         Your OpenAI API key (required when using OpenAI)
+  OPENAI_API_KEY         Your OpenAI API key (required when using OpenAI unless registered)
   OPENAI_MODEL           The OpenAI model to use (default: gpt-4o)
   OPENAI_TEMPERATURE     The temperature to use for the OpenAI model (default: 0.1)
   OPENAI_MAX_TOKENS      The maximum number of tokens to use for the OpenAI model (default: 450)
   
   # Anthropic configuration
-  ANTHROPIC_API_KEY      Your Anthropic API key (required when using Anthropic)
+  ANTHROPIC_API_KEY      Your Anthropic API key (required when using Anthropic unless registered)
   ANTHROPIC_MODEL        The Anthropic model to use (default: claude-3-haiku-20240307)
   ANTHROPIC_TEMPERATURE  The temperature to use for the Anthropic model (default: 0.1)
   ANTHROPIC_MAX_TOKENS   The maximum number of tokens to use for the Anthropic model (default: 450)
   
   # General configuration
-  AI_PROVIDER            The AI provider to use (openai or anthropic, default: openai)
+  AI_PROVIDER            The AI provider to use (openai or anthropic, default: openai, or local config)
 `
 	fmt.Println(helpMessage)
 }
@@ -202,11 +221,49 @@ func registerAppFlags(fs *flag.FlagSet, verbose, create, showHelp, titleOnly, bo
 	fs.IntVar(issueNo, "issue-no", 0, "Issue number to associate with the pull request")
 }
 
-func main() {
-	var config Config
-	err := envconfig.Process("", &config)
+func isAuthCommand(args []string) bool {
+	return len(args) > 0 && args[0] == "auth"
+}
+
+// credentialStore is the secret backend used when generating pull requests.
+// Tests replace it with an in-memory store; production uses the OS keyring.
+var credentialStore auth.Store = auth.KeyringStore{}
+
+func loadAppConfig() (Config, error) {
+	var cfg Config
+	if err := envconfig.Process("", &cfg); err != nil {
+		return cfg, fmt.Errorf("reading envvars: %w", err)
+	}
+
+	configPath, err := auth.DefaultConfigPath()
 	if err != nil {
-		fmt.Printf("Failed to process environment variables: %s\n", err)
+		return cfg, err
+	}
+	fileCfg, err := auth.LoadFileConfig(configPath)
+	if err != nil {
+		return cfg, err
+	}
+	creds, err := auth.Resolve(os.LookupEnv, fileCfg, credentialStore)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.OpenAIKey = creds.OpenAIKey
+	cfg.AnthropicKey = creds.AnthropicKey
+	cfg.Provider = creds.ModelProvider
+	if err := creds.Validate(); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func main() {
+	if isAuthCommand(os.Args[1:]) {
+		if err := runAuth(os.Args[2:]); err != nil {
+			if !errors.Is(err, errAuthUsage) {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			}
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -220,6 +277,12 @@ func main() {
 	}
 	if showVersion {
 		fmt.Println(versionString())
+		return
+	}
+
+	config, err := loadAppConfig()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		return
 	}
 
@@ -249,7 +312,7 @@ func main() {
 
 	// Stop the spinner
 	diffSpinner.stop()
-	
+
 	if err != nil {
 		fmt.Println("Error getting git diff:", err)
 		return
@@ -261,7 +324,6 @@ func main() {
 	promptSpinner := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Creating prompts")
 	promptSpinner.start()
 	promptSpinner.stop()
-
 
 	if titleOnly {
 		titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
@@ -312,7 +374,7 @@ func main() {
 		prNumber, err := createPullRequest(title, body, defaultBranch)
 
 		prSpinner.stop()
-		
+
 		if err != nil {
 			fmt.Println("Error creating pull request:", err)
 		} else {

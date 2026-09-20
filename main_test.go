@@ -32,6 +32,20 @@ func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
 	if strings.Contains(out, " -V ") || strings.Contains(out, "  -V") {
 		t.Fatalf("help should document --version, not -V:\n%s", out)
 	}
+	for _, cmd := range []string{"auth register", "auth remove", "auth status", "auth switch"} {
+		if !strings.Contains(out, cmd) {
+			t.Fatalf("help missing %s:\n%s", cmd, out)
+		}
+	}
+	if !strings.Contains(out, "OPENAI_API_KEY") {
+		t.Fatalf("help missing env documentation:\n%s", out)
+	}
+	if !strings.Contains(out, "gh aipr auth register") {
+		t.Fatalf("help missing resolution fallback:\n%s", out)
+	}
+	if strings.Contains(out, "login") || strings.Contains(out, "logout") {
+		t.Fatalf("help should not mention login/logout:\n%s", out)
+	}
 }
 
 func TestVersionFlagParsesAsVersion(t *testing.T) {
