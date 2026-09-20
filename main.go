@@ -52,6 +52,7 @@ USAGE
 
 FLAGS
   --help         Show help for command
+  --version      Print version and exit
   --verbose      Enable verbose output
   --create       Create a pull request
   --title        Output only the title
@@ -61,6 +62,7 @@ FLAGS
 
 EXAMPLES
   $ gh aipr --help
+  $ gh aipr --version
   $ gh aipr --verbose
 
 ENVIRONMENT VARIABLES
@@ -189,6 +191,17 @@ func confirm(prompt string) bool {
 	return strings.ToLower(response) == "y"
 }
 
+func registerAppFlags(fs *flag.FlagSet, verbose, create, showHelp, titleOnly, bodyOnly, japanise, showVersion *bool, issueNo *int) {
+	fs.BoolVar(verbose, "verbose", false, "Enable verbose output")
+	fs.BoolVar(create, "create", false, "Create a pull request")
+	fs.BoolVar(showHelp, "help", false, "Show help for command")
+	fs.BoolVar(showVersion, "version", false, "Print version and exit")
+	fs.BoolVar(titleOnly, "title", false, "Output only the title")
+	fs.BoolVar(bodyOnly, "body", false, "Output only the body")
+	fs.BoolVar(japanise, "japanise", false, "Output in Japanese")
+	fs.IntVar(issueNo, "issue-no", 0, "Issue number to associate with the pull request")
+}
+
 func main() {
 	var config Config
 	err := envconfig.Process("", &config)
@@ -197,18 +210,16 @@ func main() {
 		return
 	}
 
-	var showHelp bool
-	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
-	flag.BoolVar(&create, "create", false, "Create a pull request")
-	flag.BoolVar(&showHelp, "help", false, "Show help for command")
-	flag.BoolVar(&titleOnly, "title", false, "Output only the title")
-	flag.BoolVar(&bodyOnly, "body", false, "Output only the body")
-	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
-	flag.IntVar(&issueNo, "issue-no", 0, "Issue number to associate with the pull request")
+	var showHelp, showVersion bool
+	registerAppFlags(flag.CommandLine, &verbose, &create, &showHelp, &titleOnly, &bodyOnly, &japanise, &showVersion, &issueNo)
 	flag.Parse()
 
 	if showHelp {
 		printHelp()
+		return
+	}
+	if showVersion {
+		fmt.Println(versionString())
 		return
 	}
 
