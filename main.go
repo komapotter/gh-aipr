@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -230,13 +231,13 @@ func main() {
 	}
 
 	// Start the spinner for git diff
-	diffSpinner := NewSpinner("Getting git diff")
-	diffSpinner.Start()
-	
+	diffSpinner := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Getting git diff")
+	diffSpinner.start()
+
 	diffOutput, err := getGitDiff()
-	
+
 	// Stop the spinner
-	diffSpinner.Stop()
+	diffSpinner.stop()
 	
 	if err != nil {
 		fmt.Println("Error getting git diff:", err)
@@ -246,9 +247,9 @@ func main() {
 	var title, body string
 
 	// Create a spinner for the prompt creation step
-	promptSpinner := NewSpinner("Creating prompts")
-	promptSpinner.Start()
-	promptSpinner.Stop()
+	promptSpinner := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Creating prompts")
+	promptSpinner.start()
+	promptSpinner.stop()
 
 
 	if titleOnly {
@@ -294,12 +295,12 @@ func main() {
 
 	if create {
 		// Add spinner for PR creation
-		prSpinner := NewSpinner("Creating pull request")
-		prSpinner.Start()
-		
+		prSpinner := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Creating pull request")
+		prSpinner.start()
+
 		prNumber, err := createPullRequest(title, body, defaultBranch)
-		
-		prSpinner.Stop()
+
+		prSpinner.stop()
 		
 		if err != nil {
 			fmt.Println("Error creating pull request:", err)

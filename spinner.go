@@ -1,85 +1,72 @@
 package main
 
 import (
-	"fmt"
+	"io"
+	"os"
+	"sync"
 	"time"
+
+	"github.com/briandowns/spinner"
 )
 
-// Spinner represents a text-based spinner for command-line applications
-type Spinner struct {
-	chars     []rune
-	message   string
-	delay     time.Duration
-	stopChan  chan struct{}
-	dotDelay  time.Duration
-	showDots  bool
-	lastDot   time.Time
-	dots      string
-	isRunning bool
+const ghSpinnerInterval = 120 * time.Millisecond
+
+type spinnerCtl struct {
+	inner   *spinner.Spinner
+	enabled bool
+	once    sync.Once
 }
 
-// NewSpinner creates a new spinner with the given message
-func NewSpinner(message string) *Spinner {
-	return &Spinner{
-		chars:    []rune(`|/-\`),
-		message:  message,
-		delay:    100 * time.Millisecond,
-		stopChan: make(chan struct{}),
-		dotDelay: time.Second,
-		showDots: true,
-		lastDot:  time.Now(),
-		dots:     "",
+func spinnerColor() string {
+	if os.Getenv("NO_COLOR") != "" {
+		return ""
 	}
+	return "fgCyan"
 }
 
-// WithDots enables or disables the dots after the message
-func (s *Spinner) WithDots(enabled bool) *Spinner {
-	s.showDots = enabled
-	return s
+func newSpinner(w io.Writer, enabled bool, message string) *spinnerCtl {
+	opts := []spinner.Option{}
+	if color := spinnerColor(); color != "" {
+		opts = append(opts, spinner.WithColor(color))
+	}
+	if f, ok := w.(*os.File); ok {
+		opts = append(opts, spinner.WithWriterFile(f))
+	} else {
+		opts = append(opts, spinner.WithWriter(w))
+	}
+
+	// Same set and interval as GitHub CLI (cli/cli uses CharSets[11] @ 120ms).
+	inner := spinner.New(spinner.CharSets[11], ghSpinnerInterval, opts...)
+	// ⣾ Getting git diff
+	inner.Suffix = " " + message
+	inner.HideCursor = true
+	return &spinnerCtl{inner: inner, enabled: enabled}
 }
 
-// WithDelay sets the delay between spinner updates
-func (s *Spinner) WithDelay(delay time.Duration) *Spinner {
-	s.delay = delay
-	return s
+func stdoutAndStderrAreTTY() bool {
+	return isCharDevice(os.Stdout) && isCharDevice(os.Stderr)
 }
 
-// Start starts the spinner
-func (s *Spinner) Start() {
-	if s.isRunning {
+func isCharDevice(f *os.File) bool {
+	if f == nil {
+		return false
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+func (s *spinnerCtl) start() {
+	if !s.enabled {
 		return
 	}
-	s.isRunning = true
-	s.stopChan = make(chan struct{})
-	go s.run()
+	s.inner.Start()
 }
 
-// Stop stops the spinner
-func (s *Spinner) Stop() {
-	if !s.isRunning {
-		return
-	}
-	s.isRunning = false
-	close(s.stopChan)
-	fmt.Printf("\r\033[K") // Clear the entire line when done
-}
-
-// run is the goroutine that displays the spinner
-func (s *Spinner) run() {
-	i := 0
-	for {
-		select {
-		case <-s.stopChan:
-			return
-		default:
-			if s.showDots && time.Since(s.lastDot) >= s.dotDelay {
-				s.dots += "."
-				s.lastDot = time.Now()
-			}
-			
-			fmt.Printf("\r %c %s%s", s.chars[i%len(s.chars)], s.message, s.dots)
-			i++
-			time.Sleep(s.delay)
-		}
-	}
+func (s *spinnerCtl) stop() {
+	s.once.Do(func() {
+		s.inner.Stop()
+	})
 }
