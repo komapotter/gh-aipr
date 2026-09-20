@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -32,9 +33,9 @@ type OpenAIResponse struct {
 
 func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
 	// Start the spinner
-	spinner := NewSpinner("Asking AI")
-	spinner.Start()
-	defer spinner.Stop()
+	sp := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Asking AI")
+	sp.start()
+	defer sp.stop()
 
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},

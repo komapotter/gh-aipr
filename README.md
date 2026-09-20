@@ -33,6 +33,7 @@ gh aipr [flags]
 ### Flags
 
 - `--help`: Show help for command
+- `--version`: Print version and exit
 - `--verbose`: Enable verbose output
 - `--create`: Create a pull request
 - `--title`: Output only the title
@@ -44,6 +45,9 @@ gh aipr [flags]
 ```bash
 # Generate both title and description
 gh aipr
+
+# Print the installed version
+gh aipr --version
 
 # Generate only the title
 gh aipr --title

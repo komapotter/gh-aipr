@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -32,9 +33,9 @@ type AnthropicResponse struct {
 
 func AskAnthropic(apiKey, model string, temperature float64, maxTokens int, question string, verbose bool) (string, error) {
 	// Start the spinner
-	spinner := NewSpinner("Asking Anthropic")
-	spinner.Start()
-	defer spinner.Stop()
+	sp := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Asking Anthropic")
+	sp.start()
+	defer sp.stop()
 
 	data := AnthropicRequest{
 		Messages:    []AnthropicMessage{{Role: "user", Content: question}},

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -51,6 +52,7 @@ USAGE
 
 FLAGS
   --help         Show help for command
+  --version      Print version and exit
   --verbose      Enable verbose output
   --create       Create a pull request
   --title        Output only the title
@@ -60,6 +62,7 @@ FLAGS
 
 EXAMPLES
   $ gh aipr --help
+  $ gh aipr --version
   $ gh aipr --verbose
 
 ENVIRONMENT VARIABLES
@@ -188,6 +191,17 @@ func confirm(prompt string) bool {
 	return strings.ToLower(response) == "y"
 }
 
+func registerAppFlags(fs *flag.FlagSet, verbose, create, showHelp, titleOnly, bodyOnly, japanise, showVersion *bool, issueNo *int) {
+	fs.BoolVar(verbose, "verbose", false, "Enable verbose output")
+	fs.BoolVar(create, "create", false, "Create a pull request")
+	fs.BoolVar(showHelp, "help", false, "Show help for command")
+	fs.BoolVar(showVersion, "version", false, "Print version and exit")
+	fs.BoolVar(titleOnly, "title", false, "Output only the title")
+	fs.BoolVar(bodyOnly, "body", false, "Output only the body")
+	fs.BoolVar(japanise, "japanise", false, "Output in Japanese")
+	fs.IntVar(issueNo, "issue-no", 0, "Issue number to associate with the pull request")
+}
+
 func main() {
 	var config Config
 	err := envconfig.Process("", &config)
@@ -196,18 +210,16 @@ func main() {
 		return
 	}
 
-	var showHelp bool
-	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
-	flag.BoolVar(&create, "create", false, "Create a pull request")
-	flag.BoolVar(&showHelp, "help", false, "Show help for command")
-	flag.BoolVar(&titleOnly, "title", false, "Output only the title")
-	flag.BoolVar(&bodyOnly, "body", false, "Output only the body")
-	flag.BoolVar(&japanise, "japanise", false, "Output in Japanese")
-	flag.IntVar(&issueNo, "issue-no", 0, "Issue number to associate with the pull request")
+	var showHelp, showVersion bool
+	registerAppFlags(flag.CommandLine, &verbose, &create, &showHelp, &titleOnly, &bodyOnly, &japanise, &showVersion, &issueNo)
 	flag.Parse()
 
 	if showHelp {
 		printHelp()
+		return
+	}
+	if showVersion {
+		fmt.Println(versionString())
 		return
 	}
 
@@ -230,13 +242,13 @@ func main() {
 	}
 
 	// Start the spinner for git diff
-	diffSpinner := NewSpinner("Getting git diff")
-	diffSpinner.Start()
-	
+	diffSpinner := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Getting git diff")
+	diffSpinner.start()
+
 	diffOutput, err := getGitDiff()
-	
+
 	// Stop the spinner
-	diffSpinner.Stop()
+	diffSpinner.stop()
 	
 	if err != nil {
 		fmt.Println("Error getting git diff:", err)
@@ -246,9 +258,9 @@ func main() {
 	var title, body string
 
 	// Create a spinner for the prompt creation step
-	promptSpinner := NewSpinner("Creating prompts")
-	promptSpinner.Start()
-	promptSpinner.Stop()
+	promptSpinner := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Creating prompts")
+	promptSpinner.start()
+	promptSpinner.stop()
 
 
 	if titleOnly {
@@ -294,12 +306,12 @@ func main() {
 
 	if create {
 		// Add spinner for PR creation
-		prSpinner := NewSpinner("Creating pull request")
-		prSpinner.Start()
-		
+		prSpinner := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Creating pull request")
+		prSpinner.start()
+
 		prNumber, err := createPullRequest(title, body, defaultBranch)
-		
-		prSpinner.Stop()
+
+		prSpinner.stop()
 		
 		if err != nil {
 			fmt.Println("Error creating pull request:", err)
