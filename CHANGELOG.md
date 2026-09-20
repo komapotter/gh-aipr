@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.5.2](https://github.com/komapotter/gh-aipr/compare/v0.5.1...v0.5.2) - 2026-09-20
+
+- Add OS keyring-backed auth register/remove/status/switch by @komapotter in https://github.com/komapotter/gh-aipr/pull/27
+
 ## [v0.5.1](https://github.com/komapotter/gh-aipr/compare/v0.5.0...v0.5.1) - 2026-09-20
 
 - スピナー修正・--version追加・tagpr対応 by @komapotter in https://github.com/komapotter/gh-aipr/pull/23
