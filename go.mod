@@ -1,6 +1,8 @@
 module github.com/komapotter/gh-aipr
 
-go 1.21
+go 1.26.10
+
+toolchain go1.27.3
 
 require (
 	github.com/briandowns/spinner v1.23.2
