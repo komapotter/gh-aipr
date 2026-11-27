@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -45,6 +46,25 @@ func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
 	}
 	if strings.Contains(out, "login") || strings.Contains(out, "logout") {
 		t.Fatalf("help should not mention login/logout:\n%s", out)
+	}
+	if !strings.Contains(out, "gpt-6-luna") {
+		t.Fatalf("help missing gpt-6-luna default:\n%s", out)
+	}
+	if strings.Contains(out, "gpt-4o") {
+		t.Fatalf("help should not document gpt-4o as the default:\n%s", out)
+	}
+}
+
+func TestConfigDefaultOpenAIModel(t *testing.T) {
+	if defaultOpenAIModel != "gpt-6-luna" {
+		t.Fatalf("defaultOpenAIModel = %q, want gpt-6-luna", defaultOpenAIModel)
+	}
+	f, ok := reflect.TypeOf(Config{}).FieldByName("OpenAIModel")
+	if !ok {
+		t.Fatal("Config.OpenAIModel missing")
+	}
+	if got := f.Tag.Get("default"); got != "gpt-6-luna" {
+		t.Fatalf("OPENAI_MODEL default tag = %q, want gpt-6-luna", got)
 	}
 }
 

@@ -106,9 +106,9 @@ Configure the tool using environment variables. These remain optional when the m
 ### OpenAI Configuration
 
 - `OPENAI_API_KEY`: Your OpenAI API key (required when using OpenAI unless registered via `gh aipr auth register`)
-- `OPENAI_MODEL`: The OpenAI model to use (default: `gpt-4o`)
-- `OPENAI_TEMPERATURE`: Temperature setting (default: `0.1`)
-- `OPENAI_MAX_TOKENS`: Maximum tokens in response (default: `450`)
+- `OPENAI_MODEL`: The OpenAI model to use (default: `gpt-6-luna`)
+- `OPENAI_TEMPERATURE`: Temperature setting (default: `0.1`). Ignored for `gpt-6-luna`, which only accepts temperature when `reasoning_effort` is `none`.
+- `OPENAI_MAX_TOKENS`: Maximum completion tokens in the response, including reasoning tokens (default: `450`). Sent as `max_completion_tokens` on Chat Completions.
 
 ### Anthropic Configuration
 

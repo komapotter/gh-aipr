@@ -19,10 +19,14 @@ import (
 
 const openAIURL = "https://api.openai.com/v1/chat/completions"
 
+// defaultOpenAIModel is the Chat Completions model used when OPENAI_MODEL is unset.
+// gpt-6-luna is a reasoning model: requests must use max_completion_tokens.
+const defaultOpenAIModel = "gpt-6-luna"
+
 type Config struct {
 	// OpenAI configuration
 	OpenAIKey         string  `envconfig:"OPENAI_API_KEY"`
-	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
+	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-6-luna"`
 	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
 
@@ -87,9 +91,9 @@ EXAMPLES
 ENVIRONMENT VARIABLES
   # OpenAI configuration
   OPENAI_API_KEY         Your OpenAI API key (required when using OpenAI unless registered)
-  OPENAI_MODEL           The OpenAI model to use (default: gpt-4o)
-  OPENAI_TEMPERATURE     The temperature to use for the OpenAI model (default: 0.1)
-  OPENAI_MAX_TOKENS      The maximum number of tokens to use for the OpenAI model (default: 450)
+  OPENAI_MODEL           The OpenAI model to use (default: gpt-6-luna)
+  OPENAI_TEMPERATURE     Sampling temperature (ignored for gpt-6-luna; default: 0.1)
+  OPENAI_MAX_TOKENS      Max completion tokens, including reasoning (default: 450)
   
   # Anthropic configuration
   ANTHROPIC_API_KEY      Your Anthropic API key (required when using Anthropic unless registered)

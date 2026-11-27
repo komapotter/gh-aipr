@@ -10,11 +10,15 @@ import (
 	"strings"
 )
 
+// OpenAIRequest is a Chat Completions payload. gpt-6-luna is a reasoning
+// model, so the request uses max_completion_tokens (not max_tokens).
+// Temperature is omitted for gpt-6-luna because it is only valid when
+// reasoning_effort is "none"; the model default is medium.
 type OpenAIRequest struct {
-	Model       string          `json:"model"`
-	Messages    []OpenAIMessage `json:"messages"`
-	MaxTokens   int             `json:"max_tokens"`
-	Temperature float64         `json:"temperature"`
+	Model               string          `json:"model"`
+	Messages            []OpenAIMessage `json:"messages"`
+	MaxCompletionTokens int             `json:"max_completion_tokens,omitempty"`
+	Temperature         *float64        `json:"temperature,omitempty"`
 }
 
 type OpenAIMessage struct {
@@ -31,18 +35,32 @@ type OpenAIResponse struct {
 	} `json:"choices"`
 }
 
+func isGPT6Luna(model string) bool {
+	m := strings.ToLower(strings.TrimSpace(model))
+	return m == defaultOpenAIModel || strings.HasPrefix(m, defaultOpenAIModel+"-")
+}
+
+func buildOpenAIRequest(model string, temperature float64, maxTokens int, question string) OpenAIRequest {
+	req := OpenAIRequest{
+		Messages:            []OpenAIMessage{{Role: "user", Content: question}},
+		Model:               model,
+		MaxCompletionTokens: maxTokens,
+	}
+	// gpt-6-luna only accepts temperature when reasoning_effort is "none".
+	// Keep sending it for other models (for example gpt-4o via OPENAI_MODEL).
+	if !isGPT6Luna(model) {
+		req.Temperature = &temperature
+	}
+	return req
+}
+
 func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
 	// Start the spinner
 	sp := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Asking AI")
 	sp.start()
 	defer sp.stop()
 
-	data := OpenAIRequest{
-		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
-		Model:       openAIModel,       // Use the model from the configuration
-		Temperature: openAITemperature, // Use the temperature from the configuration
-		MaxTokens:   openAIMaxTokens,   // Use the max tokens from the configuration
-	}
+	data := buildOpenAIRequest(openAIModel, openAITemperature, openAIMaxTokens, question)
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
 		return "", err
