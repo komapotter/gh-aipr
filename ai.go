@@ -27,7 +27,7 @@ func AskAI(config Config, question string, verbose bool) (string, error) {
 			return "", fmt.Errorf("OpenAI API key not found. Set OPENAI_API_KEY, or run: gh aipr auth register")
 		}
 
-		return AskOpenAI(openAIURL, config.OpenAIKey, model, config.OpenAITemperature, config.OpenAIMaxTokens, question, verbose)
+		return AskOpenAI(openAIURL, config.OpenAIKey, model, config.OpenAITemperature, config.OpenAIMaxTokens, config.OpenAIReasoningEffort, question, verbose)
 
 	case "anthropic":
 		// Determine which model to use

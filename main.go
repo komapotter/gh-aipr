@@ -25,10 +25,11 @@ const defaultOpenAIModel = "gpt-6-luna"
 
 type Config struct {
 	// OpenAI configuration
-	OpenAIKey         string  `envconfig:"OPENAI_API_KEY"`
-	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-6-luna"`
-	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
-	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
+	OpenAIKey             string  `envconfig:"OPENAI_API_KEY"`
+	OpenAIModel           string  `envconfig:"OPENAI_MODEL" default:"gpt-6-luna"`
+	OpenAITemperature     float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
+	OpenAIMaxTokens       int     `envconfig:"OPENAI_MAX_TOKENS" default:"2000"`
+	OpenAIReasoningEffort string  `envconfig:"OPENAI_REASONING_EFFORT" default:"low"`
 
 	// Anthropic configuration
 	AnthropicKey         string  `envconfig:"ANTHROPIC_API_KEY"`
@@ -92,8 +93,9 @@ ENVIRONMENT VARIABLES
   # OpenAI configuration
   OPENAI_API_KEY         Your OpenAI API key (required when using OpenAI unless registered)
   OPENAI_MODEL           The OpenAI model to use (default: gpt-6-luna)
-  OPENAI_TEMPERATURE     Sampling temperature (ignored for gpt-6-luna; default: 0.1)
-  OPENAI_MAX_TOKENS      Max completion tokens, including reasoning (default: 450)
+  OPENAI_TEMPERATURE     Sampling temperature (default: 0.1; omitted unless effort is none)
+  OPENAI_MAX_TOKENS      Max completion tokens, including reasoning (default: 2000)
+  OPENAI_REASONING_EFFORT  Reasoning effort for gpt-6* / gpt-5* / o-series (default: low; none, low, medium, high, xhigh, max)
   
   # Anthropic configuration
   ANTHROPIC_API_KEY      Your Anthropic API key (required when using Anthropic unless registered)
@@ -238,6 +240,11 @@ func loadAppConfig() (Config, error) {
 	if err := envconfig.Process("", &cfg); err != nil {
 		return cfg, fmt.Errorf("reading envvars: %w", err)
 	}
+	effort, err := normalizeReasoningEffort(cfg.OpenAIReasoningEffort)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.OpenAIReasoningEffort = effort
 
 	configPath, err := auth.DefaultConfigPath()
 	if err != nil {

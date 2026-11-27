@@ -53,18 +53,39 @@ func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
 	if strings.Contains(out, "gpt-4o") {
 		t.Fatalf("help should not document gpt-4o as the default:\n%s", out)
 	}
+	if !strings.Contains(out, "OPENAI_REASONING_EFFORT") {
+		t.Fatalf("help missing OPENAI_REASONING_EFFORT:\n%s", out)
+	}
+	if !strings.Contains(out, "default: 2000") {
+		t.Fatalf("help missing OPENAI_MAX_TOKENS default 2000:\n%s", out)
+	}
 }
 
-func TestConfigDefaultOpenAIModel(t *testing.T) {
+func TestConfigDefaultOpenAISettings(t *testing.T) {
 	if defaultOpenAIModel != "gpt-6-luna" {
 		t.Fatalf("defaultOpenAIModel = %q, want gpt-6-luna", defaultOpenAIModel)
 	}
-	f, ok := reflect.TypeOf(Config{}).FieldByName("OpenAIModel")
-	if !ok {
-		t.Fatal("Config.OpenAIModel missing")
+	if defaultOpenAIReasoningEffort != "low" {
+		t.Fatalf("defaultOpenAIReasoningEffort = %q, want low", defaultOpenAIReasoningEffort)
 	}
-	if got := f.Tag.Get("default"); got != "gpt-6-luna" {
-		t.Fatalf("OPENAI_MODEL default tag = %q, want gpt-6-luna", got)
+	if defaultOpenAIMaxTokens != 2000 {
+		t.Fatalf("defaultOpenAIMaxTokens = %d, want 2000", defaultOpenAIMaxTokens)
+	}
+
+	typ := reflect.TypeOf(Config{})
+	want := map[string]string{
+		"OpenAIModel":           "gpt-6-luna",
+		"OpenAIMaxTokens":       "2000",
+		"OpenAIReasoningEffort": "low",
+	}
+	for field, def := range want {
+		f, ok := typ.FieldByName(field)
+		if !ok {
+			t.Fatalf("Config.%s missing", field)
+		}
+		if got := f.Tag.Get("default"); got != def {
+			t.Fatalf("Config.%s default tag = %q, want %s", field, got, def)
+		}
 	}
 }
 
