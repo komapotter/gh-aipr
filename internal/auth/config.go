@@ -15,6 +15,8 @@ const configFileName = "config.yml"
 const configFileHeader = "# gh-aipr local configuration. Do not store API keys in this file.\n"
 
 // FileConfig holds non-secret settings. API keys must never be written here.
+// ModelProvider is accepted when reading legacy config.yml files that still
+// contain ai_provider; it is ignored because this tool is OpenAI-only.
 type FileConfig struct {
 	ModelProvider string `yaml:"ai_provider,omitempty"`
 }
@@ -73,18 +75,4 @@ func SaveFileConfig(path string, cfg FileConfig) error {
 		return err
 	}
 	return os.WriteFile(path, buf.Bytes(), 0o600)
-}
-
-// SetActiveProvider updates ai_provider in the config file.
-func SetActiveProvider(path, provider string) error {
-	p, err := NormalizeProvider(provider)
-	if err != nil {
-		return err
-	}
-	cfg, err := LoadFileConfig(path)
-	if err != nil {
-		return err
-	}
-	cfg.ModelProvider = p
-	return SaveFileConfig(path, cfg)
 }

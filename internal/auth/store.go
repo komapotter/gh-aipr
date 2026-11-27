@@ -11,7 +11,7 @@ import (
 // ErrNotFound is returned when a provider has no secret in the store.
 var ErrNotFound = errors.New("secret not found in keyring")
 
-// Store is a secret backend keyed by provider (openai or anthropic).
+// Store is a secret backend keyed by provider (openai).
 type Store interface {
 	Get(provider string) (string, error)
 	Set(provider, secret string) error
