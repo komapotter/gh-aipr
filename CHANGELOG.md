@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.5.4](https://github.com/komapotter/gh-aipr/compare/v0.5.3...v0.5.4) - 2026-11-28
+
+- OpenAIのデフォルトモデルをgpt-6-lunaへ移行 by @komapotter in https://github.com/komapotter/gh-aipr/pull/33
+- Anthropic対応を削除し、OpenAI専用にする by @komapotter in https://github.com/komapotter/gh-aipr/pull/35
+- AI出力のPRタイトル/本文フォーマットを安定化する by @komapotter in https://github.com/komapotter/gh-aipr/pull/38
+
 ## [v0.5.3](https://github.com/komapotter/gh-aipr/compare/v0.5.2...v0.5.3) - 2026-10-23
 
 - リリースビルドの Go を 1.27.3 に上げ eMudhra 中間CA拒否を組み込む by @komapotter in https://github.com/komapotter/gh-aipr/pull/30
