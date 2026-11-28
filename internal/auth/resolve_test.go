@@ -17,69 +17,55 @@ func getenvMap(m map[string]string) EnvLookup {
 	}
 }
 
-func TestResolveEnvOverridesKeyringAndConfig(t *testing.T) {
+func TestResolveEnvOverridesKeyring(t *testing.T) {
 	store := NewMemoryStore()
 	if err := store.Set(ProviderOpenAI, "keyring-openai"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Set(ProviderAnthropic, "keyring-anthropic"); err != nil {
-		t.Fatal(err)
-	}
-	file := FileConfig{ModelProvider: ProviderAnthropic}
 	env := getenvMap(map[string]string{
-		EnvProvider:         ProviderOpenAI,
 		"OPENAI_API_KEY":    "env-openai",
 		"ANTHROPIC_API_KEY": "env-anthropic",
+		"AI_PROVIDER":       "anthropic",
 	})
 
-	creds, err := Resolve(env, file, store)
+	creds, err := Resolve(env, store)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if creds.ModelProvider != ProviderOpenAI || creds.ProviderSource != SourceEnvironment {
-		t.Fatalf("provider = %s (%s)", creds.ModelProvider, creds.ProviderSource)
-	}
 	if creds.OpenAIKey != "env-openai" || creds.OpenAISource != SourceEnvironment {
 		t.Fatalf("openai key source = %s", creds.OpenAISource)
-	}
-	if creds.AnthropicKey != "env-anthropic" || creds.AnthropicSource != SourceEnvironment {
-		t.Fatalf("anthropic key source = %s", creds.AnthropicSource)
 	}
 }
 
 func TestResolveKeyringUsedWhenEnvUnset(t *testing.T) {
 	store := NewMemoryStore()
-	if err := store.Set(ProviderAnthropic, "keyring-anthropic"); err != nil {
+	if err := store.Set(ProviderOpenAI, "keyring-openai"); err != nil {
 		t.Fatal(err)
 	}
-	file := FileConfig{ModelProvider: ProviderAnthropic}
 
-	creds, err := Resolve(getenvMap(nil), file, store)
+	creds, err := Resolve(getenvMap(map[string]string{
+		"ANTHROPIC_API_KEY": "env-anthropic",
+		"AI_PROVIDER":       "anthropic",
+	}), store)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if creds.ModelProvider != ProviderAnthropic || creds.ProviderSource != SourceConfig {
-		t.Fatalf("provider = %s (%s)", creds.ModelProvider, creds.ProviderSource)
 	}
 	key, err := creds.APIKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if key != "keyring-anthropic" {
+	if key != "keyring-openai" {
 		t.Fatalf("APIKey = %q", key)
 	}
-	if creds.AnthropicSource != SourceKeyring {
-		t.Fatalf("source = %s", creds.AnthropicSource)
+	if creds.OpenAISource != SourceKeyring {
+		t.Fatalf("source = %s", creds.OpenAISource)
 	}
 }
 
-func TestResolveDefaultProviderIsOpenAI(t *testing.T) {
-	creds, err := Resolve(getenvMap(nil), FileConfig{}, NewMemoryStore())
+func TestResolveMissingKeySuggestsRegister(t *testing.T) {
+	creds, err := Resolve(getenvMap(nil), NewMemoryStore())
 	if err != nil {
 		t.Fatal(err)
-	}
-	if creds.ModelProvider != ProviderOpenAI || creds.ProviderSource != SourceDefault {
-		t.Fatalf("provider = %s (%s)", creds.ModelProvider, creds.ProviderSource)
 	}
 	if _, err := creds.APIKey(); err == nil {
 		t.Fatal("expected missing key error")
@@ -94,7 +80,7 @@ func TestResolveEmptyEnvFallsBackToKeyring(t *testing.T) {
 		t.Fatal(err)
 	}
 	env := getenvMap(map[string]string{"OPENAI_API_KEY": ""})
-	creds, err := Resolve(env, FileConfig{}, store)
+	creds, err := Resolve(env, store)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,21 +89,27 @@ func TestResolveEmptyEnvFallsBackToKeyring(t *testing.T) {
 	}
 }
 
-func TestResolveInactiveKeyringErrorIsIgnored(t *testing.T) {
-	store := &errStore{errFor: ProviderAnthropic, err: errors.New("dbus unavailable")}
-	env := getenvMap(map[string]string{"OPENAI_API_KEY": "env-openai"})
-	creds, err := Resolve(env, FileConfig{}, store)
+func TestResolveIgnoresAnthropicEnvAndConfig(t *testing.T) {
+	creds, err := Resolve(getenvMap(map[string]string{
+		"ANTHROPIC_API_KEY": "env-anthropic",
+		"AI_PROVIDER":       "anthropic",
+	}), NewMemoryStore())
 	if err != nil {
-		t.Fatalf("openai env should work even if anthropic keyring fails: %v", err)
+		t.Fatal(err)
 	}
-	if creds.OpenAIKey != "env-openai" {
+	if creds.OpenAIKey != "" {
 		t.Fatalf("OpenAIKey = %q", creds.OpenAIKey)
+	}
+	if err := creds.Validate(); err == nil {
+		t.Fatal("expected missing OpenAI key")
+	} else if strings.Contains(strings.ToLower(err.Error()), "anthropic") {
+		t.Fatalf("error should not mention anthropic: %v", err)
 	}
 }
 
 func TestResolveActiveKeyringErrorSuggestsRegister(t *testing.T) {
 	store := &errStore{errFor: ProviderOpenAI, err: errors.New("dbus unavailable")}
-	creds, err := Resolve(getenvMap(nil), FileConfig{}, store)
+	creds, err := Resolve(getenvMap(nil), store)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +131,7 @@ func TestLookupStatusNeverIncludesSecrets(t *testing.T) {
 	if err := store.Set(ProviderOpenAI, secret); err != nil {
 		t.Fatal(err)
 	}
-	st := LookupStatus(getenvMap(nil), FileConfig{ModelProvider: ProviderOpenAI}, store)
+	st := LookupStatus(getenvMap(nil), store)
 	ks := st.Keys[ProviderOpenAI]
 	if !ks.Registered || ks.Source != SourceKeyring {
 		t.Fatalf("status = %+v", ks)
@@ -147,12 +139,15 @@ func TestLookupStatusNeverIncludesSecrets(t *testing.T) {
 	if strings.Contains(ks.Source, secret) {
 		t.Fatal("status leaked secret")
 	}
+	if _, ok := st.Keys["anthropic"]; ok {
+		t.Fatal("status should not include anthropic")
+	}
 }
 
 func TestFileConfigRoundTripDoesNotWriteKeys(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "gh-aipr", "config.yml")
-	if err := SetActiveProvider(path, ProviderAnthropic); err != nil {
+	if err := SaveFileConfig(path, FileConfig{ModelProvider: "anthropic"}); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -163,15 +158,12 @@ func TestFileConfigRoundTripDoesNotWriteKeys(t *testing.T) {
 	if strings.Contains(strings.ToLower(body), "api_key") || strings.Contains(body, "sk-") {
 		t.Fatalf("config file must not contain secrets:\n%s", body)
 	}
-	if !strings.Contains(body, "ai_provider: anthropic") {
-		t.Fatalf("missing provider:\n%s", body)
-	}
 	cfg, err := LoadFileConfig(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ModelProvider != ProviderAnthropic {
-		t.Fatalf("ModelProvider = %q", cfg.ModelProvider)
+	if cfg.ModelProvider != "anthropic" {
+		t.Fatalf("legacy ai_provider should still parse, got %q", cfg.ModelProvider)
 	}
 }
 
@@ -206,6 +198,16 @@ func TestKeyringStoreRoundTripWithMock(t *testing.T) {
 	}
 }
 
+func TestKeyringStoreRejectsAnthropic(t *testing.T) {
+	keyring.MockInit()
+	var s KeyringStore
+	if _, err := s.Get("anthropic"); err == nil {
+		t.Fatal("expected error")
+	} else if !strings.Contains(err.Error(), "anthropic is no longer supported") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestNormalizeProvider(t *testing.T) {
 	p, err := NormalizeProvider(" OpenAI ")
 	if err != nil || p != ProviderOpenAI {
@@ -213,6 +215,11 @@ func TestNormalizeProvider(t *testing.T) {
 	}
 	if _, err := NormalizeProvider("gemini"); err == nil {
 		t.Fatal("expected error")
+	}
+	if _, err := NormalizeProvider("anthropic"); err == nil {
+		t.Fatal("expected anthropic error")
+	} else if !strings.Contains(err.Error(), "no longer supported") {
+		t.Fatalf("got %v", err)
 	}
 }
 

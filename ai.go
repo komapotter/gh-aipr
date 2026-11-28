@@ -1,46 +1,12 @@
 package main
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
-// AskAI is a unified function that routes requests to either OpenAI or Anthropic API
-// based on the configuration
+// AskAI sends a prompt to the OpenAI Chat Completions API.
 func AskAI(config Config, question string, verbose bool) (string, error) {
-	// Determine which provider to use
-	provider := config.Provider
-	if provider == "" {
-		provider = "openai" // Default to OpenAI if not specified
+	if config.OpenAIKey == "" {
+		return "", fmt.Errorf("OpenAI API key not found. Set OPENAI_API_KEY, or run: gh aipr auth register")
 	}
 
-	provider = strings.ToLower(provider)
-
-	// Route based on provider
-	switch provider {
-	case "openai":
-		// Determine which model to use
-		model := config.OpenAIModel
-
-		// Check if API key is available
-		if config.OpenAIKey == "" {
-			return "", fmt.Errorf("OpenAI API key not found. Set OPENAI_API_KEY, or run: gh aipr auth register")
-		}
-
-		return AskOpenAI(openAIURL, config.OpenAIKey, model, config.OpenAITemperature, config.OpenAIMaxTokens, config.OpenAIReasoningEffort, question, verbose)
-
-	case "anthropic":
-		// Determine which model to use
-		model := config.AnthropicModel
-
-		// Check if API key is available
-		if config.AnthropicKey == "" {
-			return "", fmt.Errorf("Anthropic API key not found. Set ANTHROPIC_API_KEY, or run: gh aipr auth register")
-		}
-
-		return AskAnthropic(config.AnthropicKey, model, config.AnthropicTemperature, config.AnthropicMaxTokens, question, verbose)
-
-	default:
-		return "", fmt.Errorf("unsupported AI provider: %s. Use 'openai' or 'anthropic'", provider)
-	}
+	return AskOpenAI(openAIURL, config.OpenAIKey, config.OpenAIModel, config.OpenAITemperature, config.OpenAIMaxTokens, config.OpenAIReasoningEffort, question, verbose)
 }

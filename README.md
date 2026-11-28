@@ -4,12 +4,12 @@ A GitHub CLI extension that automatically generates pull request titles and desc
 
 ## Overview
 
-`gh-aipr` is a GitHub CLI extension that uses AI (OpenAI or Anthropic) to analyze your git diff and generate meaningful pull request titles and descriptions. This tool helps you create more descriptive and standardized PR content with minimal effort.
+`gh-aipr` is a GitHub CLI extension that uses OpenAI to analyze your git diff and generate meaningful pull request titles and descriptions. This tool helps you create more descriptive and standardized PR content with minimal effort.
 
 ## Features
 
 - Generate PR titles and descriptions based on your code changes
-- Support for both OpenAI (default) and Anthropic APIs
+- OpenAI Chat Completions (default model: `gpt-6-luna`)
 - Option to create the PR directly 
 - Japanese language support
 - Configurable AI parameters via environment variables
@@ -78,23 +78,22 @@ API keys can live in environment variables (CI and one-off overrides) or in the 
 On macOS, the first Keychain access may show a permission dialog.
 
 ```bash
-gh aipr auth register              # choose openai or anthropic, then paste the key (no echo)
-gh aipr auth register -p openai    # or pass the provider as a flag / argument
-gh aipr auth status                # shows registered providers and the active one (never prints the key)
-gh aipr auth switch anthropic      # openai or anthropic only
-gh aipr auth remove -p openai
+gh aipr auth register              # paste the OpenAI API key (no echo)
+gh aipr auth register -p openai    # provider flag is optional (openai only)
+gh aipr auth status                # shows whether an OpenAI key is registered (never prints the key)
+gh aipr auth remove
 ```
 
-`login` / `logout` are not used; the commands are **register** / **remove** / **status** / **switch**.
+`login` / `logout` are not used; the commands are **register** / **remove** / **status**.
 
-Non-secret settings (the active provider) are stored in `$XDG_CONFIG_HOME/gh-aipr/config.yml`, defaulting to `~/.config/gh-aipr/config.yml` (on Windows, `%AppData%\gh-aipr\config.yml`). API keys are never written to this file.
+API keys are stored in the OS keyring, never in a config file.
 
 ### Credential resolution order
 
 When generating a pull request title or description, credentials are resolved in this order:
 
-1. Environment variables win if set (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `AI_PROVIDER`)
-2. Otherwise the OS keyring plus local config
+1. Environment variables win if set (`OPENAI_API_KEY`)
+2. Otherwise the OS keyring
 3. Otherwise an error suggesting `gh aipr auth register`
 
 Existing env-only workflows keep working without running `auth register`.
@@ -105,22 +104,11 @@ Configure the tool using environment variables. These remain optional when the m
 
 ### OpenAI Configuration
 
-- `OPENAI_API_KEY`: Your OpenAI API key (required when using OpenAI unless registered via `gh aipr auth register`)
+- `OPENAI_API_KEY`: Your OpenAI API key (required unless registered via `gh aipr auth register`)
 - `OPENAI_MODEL`: The OpenAI model to use (default: `gpt-6-luna`)
 - `OPENAI_TEMPERATURE`: Temperature setting (default: `0.1`). Sent only for non-reasoning models, or when `OPENAI_REASONING_EFFORT` is `none`.
 - `OPENAI_MAX_TOKENS`: Maximum completion tokens in the response, including reasoning tokens (default: `2000`). Sent as `max_completion_tokens` on Chat Completions.
 - `OPENAI_REASONING_EFFORT`: Reasoning effort for reasoning models (`gpt-6*`, `gpt-5*`, o-series). Default: `low`. Allowed: `none`, `low`, `medium`, `high`, `xhigh`, `max`. Invalid values are rejected. Omitted for non-reasoning models such as `gpt-4o`.
-
-### Anthropic Configuration
-
-- `ANTHROPIC_API_KEY`: Your Anthropic API key (required when using Anthropic unless registered via `gh aipr auth register`)
-- `ANTHROPIC_MODEL`: The Anthropic model to use (default: `claude-3-haiku-20240307`)
-- `ANTHROPIC_TEMPERATURE`: Temperature setting (default: `0.1`)
-- `ANTHROPIC_MAX_TOKENS`: Maximum tokens in response (default: `450`)
-
-### General Configuration
-
-- `AI_PROVIDER`: The AI provider to use (`openai` or `anthropic`, default: `openai`, or the value from local config)
 
 ## License
 

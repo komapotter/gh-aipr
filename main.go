@@ -30,15 +30,6 @@ type Config struct {
 	OpenAITemperature     float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens       int     `envconfig:"OPENAI_MAX_TOKENS" default:"2000"`
 	OpenAIReasoningEffort string  `envconfig:"OPENAI_REASONING_EFFORT" default:"low"`
-
-	// Anthropic configuration
-	AnthropicKey         string  `envconfig:"ANTHROPIC_API_KEY"`
-	AnthropicModel       string  `envconfig:"ANTHROPIC_MODEL" default:"claude-3-haiku-20240307"`
-	AnthropicTemperature float64 `envconfig:"ANTHROPIC_TEMPERATURE" default:"0.1"`
-	AnthropicMaxTokens   int     `envconfig:"ANTHROPIC_MAX_TOKENS" default:"450"`
-
-	// API provider to use ("openai" or "anthropic"); resolved with config/keyring if unset
-	Provider string `envconfig:"AI_PROVIDER"`
 }
 
 var (
@@ -69,14 +60,13 @@ FLAGS
   --issue-no     Associate an issue number with the pull request
 
 AUTH COMMANDS
-  gh aipr auth register   Store an API key in the OS keyring
-  gh aipr auth remove     Remove a stored API key from the OS keyring
-  gh aipr auth status     Show registered providers and the active provider
-  gh aipr auth switch     Switch active provider (openai or anthropic)
+  gh aipr auth register   Store an OpenAI API key in the OS keyring
+  gh aipr auth remove     Remove the stored OpenAI API key from the OS keyring
+  gh aipr auth status     Show whether an OpenAI API key is registered
 
 API KEY RESOLUTION ORDER
-  1. Environment variables (OPENAI_API_KEY / ANTHROPIC_API_KEY / AI_PROVIDER)
-  2. OS keyring + local config (~/.config/gh-aipr/config.yml)
+  1. Environment variable (OPENAI_API_KEY)
+  2. OS keyring
   3. Error suggesting: gh aipr auth register
 
 Existing env-only workflows keep working without auth register.
@@ -86,25 +76,15 @@ EXAMPLES
   $ gh aipr --help
   $ gh aipr --version
   $ gh aipr --verbose
-  $ gh aipr auth register -p openai
+  $ gh aipr auth register
   $ gh aipr auth status
 
 ENVIRONMENT VARIABLES
-  # OpenAI configuration
-  OPENAI_API_KEY         Your OpenAI API key (required when using OpenAI unless registered)
+  OPENAI_API_KEY         Your OpenAI API key (required unless registered)
   OPENAI_MODEL           The OpenAI model to use (default: gpt-6-luna)
   OPENAI_TEMPERATURE     Sampling temperature (default: 0.1; omitted unless effort is none)
   OPENAI_MAX_TOKENS      Max completion tokens, including reasoning (default: 2000)
   OPENAI_REASONING_EFFORT  Reasoning effort for gpt-6* / gpt-5* / o-series (default: low; none, low, medium, high, xhigh, max)
-  
-  # Anthropic configuration
-  ANTHROPIC_API_KEY      Your Anthropic API key (required when using Anthropic unless registered)
-  ANTHROPIC_MODEL        The Anthropic model to use (default: claude-3-haiku-20240307)
-  ANTHROPIC_TEMPERATURE  The temperature to use for the Anthropic model (default: 0.1)
-  ANTHROPIC_MAX_TOKENS   The maximum number of tokens to use for the Anthropic model (default: 450)
-  
-  # General configuration
-  AI_PROVIDER            The AI provider to use (openai or anthropic, default: openai, or local config)
 `
 	fmt.Println(helpMessage)
 }
@@ -246,21 +226,11 @@ func loadAppConfig() (Config, error) {
 	}
 	cfg.OpenAIReasoningEffort = effort
 
-	configPath, err := auth.DefaultConfigPath()
-	if err != nil {
-		return cfg, err
-	}
-	fileCfg, err := auth.LoadFileConfig(configPath)
-	if err != nil {
-		return cfg, err
-	}
-	creds, err := auth.Resolve(os.LookupEnv, fileCfg, credentialStore)
+	creds, err := auth.Resolve(os.LookupEnv, credentialStore)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.OpenAIKey = creds.OpenAIKey
-	cfg.AnthropicKey = creds.AnthropicKey
-	cfg.Provider = creds.ModelProvider
 	if err := creds.Validate(); err != nil {
 		return cfg, err
 	}
