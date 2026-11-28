@@ -299,47 +299,26 @@ func main() {
 		return
 	}
 
-	var title, body string
-
 	// Create a spinner for the prompt creation step
 	promptSpinner := newSpinner(os.Stderr, stdoutAndStderrAreTTY(), "Creating prompts")
 	promptSpinner.start()
 	promptSpinner.stop()
 
+	title, body, err := generatePRFromConfig(config, diffOutput, japanise, verbose)
+	if err != nil {
+		fmt.Printf("Error generating pull request: %s\n", err)
+		return
+	}
+
 	if titleOnly {
-		titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
-		title, err = AskAI(config, titlePrompt, verbose)
-		if err != nil {
-			fmt.Printf("Error asking AI for title: %s\n", err)
-			return
-		}
 		fmt.Println("Generated Pull Request Title:")
 		fmt.Println(title)
 		return
 	}
 
 	if bodyOnly {
-		bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
-		body, err = AskAI(config, bodyPrompt, verbose)
-		if err != nil {
-			fmt.Printf("Error asking AI for body: %s\n", err)
-			return
-		}
 		fmt.Println("Generated Pull Request Description:")
 		fmt.Println(body)
-		return
-	}
-
-	titlePrompt := CreateOpenAIQuestion(PrTitle, diffOutput, japanise)
-	bodyPrompt := CreateOpenAIQuestion(PrBody, diffOutput, japanise)
-	title, err = AskAI(config, titlePrompt, verbose)
-	if err != nil {
-		fmt.Printf("Error asking AI for title: %s\n", err)
-		return
-	}
-	body, err = AskAI(config, bodyPrompt, verbose)
-	if err != nil {
-		fmt.Printf("Error asking AI for body: %s\n", err)
 		return
 	}
 
