@@ -134,7 +134,7 @@ func TestAskOpenAIUsesChatCompletionsPayload(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := AskOpenAI(srv.URL, "test-key", defaultOpenAIModel, 0.1, defaultOpenAIMaxTokens, defaultOpenAIReasoningEffort, "summarize", false)
+	got, err := AskOpenAI(srv.URL, "test-key", defaultOpenAIModel, 0.1, defaultOpenAIMaxTokens, defaultOpenAIReasoningEffort, []OpenAIMessage{{Role: "user", Content: "summarize"}}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,5 +155,97 @@ func TestAskOpenAIUsesChatCompletionsPayload(t *testing.T) {
 	}
 	if !strings.Contains(string(gotBody), `"max_completion_tokens":2000`) {
 		t.Fatalf("request body missing max_completion_tokens 2000: %s", gotBody)
+	}
+	if !strings.Contains(string(gotBody), `"type":"json_schema"`) {
+		t.Fatalf("request body missing json_schema response_format: %s", gotBody)
+	}
+	if !strings.Contains(string(gotBody), `"strict":true`) {
+		t.Fatalf("request body missing strict json_schema: %s", gotBody)
+	}
+}
+
+func TestBuildOpenAIChatRequestJSONSchema(t *testing.T) {
+	got := marshalRequest(t, buildOpenAIChatRequest(defaultOpenAIModel, 0.1, defaultOpenAIMaxTokens, defaultOpenAIReasoningEffort,
+		[]OpenAIMessage{{Role: "system", Content: "contract"}, {Role: "user", Content: "diff"}}, jsonSchemaFormat()))
+	format, ok := got["response_format"].(map[string]any)
+	if !ok {
+		t.Fatalf("response_format missing: %v", got)
+	}
+	if format["type"] != "json_schema" {
+		t.Fatalf("response_format.type = %v", format["type"])
+	}
+	schema, ok := format["json_schema"].(map[string]any)
+	if !ok {
+		t.Fatalf("json_schema missing: %v", format)
+	}
+	if schema["name"] != "pull_request" {
+		t.Fatalf("schema name = %v", schema["name"])
+	}
+	if schema["strict"] != true {
+		t.Fatalf("strict = %v", schema["strict"])
+	}
+	msgs, ok := got["messages"].([]any)
+	if !ok || len(msgs) != 2 {
+		t.Fatalf("messages = %v", got["messages"])
+	}
+}
+
+func TestAskOpenAIFallsBackToJSONObject(t *testing.T) {
+	var bodies [][]byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("reading body: %v", err)
+		}
+		bodies = append(bodies, body)
+		if len(bodies) == 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"message":"json_schema is not supported"}}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"index":0,"message":{"role":"assistant","content":"{\"title\":\"Ok\"}"},"finish_reason":"stop"}]}`))
+	}))
+	defer srv.Close()
+
+	got, err := AskOpenAI(srv.URL, "test-key", defaultOpenAIModel, 0.1, defaultOpenAIMaxTokens, defaultOpenAIReasoningEffort, []OpenAIMessage{{Role: "user", Content: "diff"}}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != `{"title":"Ok"}` {
+		t.Fatalf("response = %q", got)
+	}
+	if len(bodies) != 2 {
+		t.Fatalf("requests = %d, want 2", len(bodies))
+	}
+	if !strings.Contains(string(bodies[0]), `"type":"json_schema"`) {
+		t.Fatalf("first request should use json_schema: %s", bodies[0])
+	}
+	if !strings.Contains(string(bodies[1]), `"type":"json_object"`) {
+		t.Fatalf("fallback request should use json_object: %s", bodies[1])
+	}
+	if strings.Contains(string(bodies[1]), `"json_schema"`) {
+		t.Fatalf("json_object fallback must omit json_schema: %s", bodies[1])
+	}
+}
+
+func TestAskOpenAIDoesNotFallbackOnUnauthorized(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":{"message":"invalid_api_key"}}`))
+	}))
+	defer srv.Close()
+
+	_, err := AskOpenAI(srv.URL, "bad-key", defaultOpenAIModel, 0.1, defaultOpenAIMaxTokens, defaultOpenAIReasoningEffort, []OpenAIMessage{{Role: "user", Content: "diff"}}, false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if calls != 1 {
+		t.Fatalf("calls = %d, want 1", calls)
+	}
+	if !strings.Contains(err.Error(), "401") && !strings.Contains(err.Error(), "Unauthorized") {
+		t.Fatalf("error = %v", err)
 	}
 }

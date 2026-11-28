@@ -10,6 +10,8 @@ A GitHub CLI extension that automatically generates pull request titles and desc
 
 - Generate PR titles and descriptions based on your code changes
 - OpenAI Chat Completions (default model: `gpt-6-luna`)
+- Structured JSON output assembled into Markdown (`## Description` / `### Changes` / `### Testing`)
+- Sanitizes placeholders and validates the result, retrying once on failure
 - Option to create the PR directly 
 - Japanese language support
 - Configurable AI parameters via environment variables
@@ -109,6 +111,30 @@ Configure the tool using environment variables. These remain optional when the m
 - `OPENAI_TEMPERATURE`: Temperature setting (default: `0.1`). Sent only for non-reasoning models, or when `OPENAI_REASONING_EFFORT` is `none`.
 - `OPENAI_MAX_TOKENS`: Maximum completion tokens in the response, including reasoning tokens (default: `2000`). Sent as `max_completion_tokens` on Chat Completions.
 - `OPENAI_REASONING_EFFORT`: Reasoning effort for reasoning models (`gpt-6*`, `gpt-5*`, o-series). Default: `low`. Allowed: `none`, `low`, `medium`, `high`, `xhigh`, `max`. Invalid values are rejected. Omitted for non-reasoning models such as `gpt-4o`.
+
+## Output format
+
+The model is asked for a JSON object (`title`, `description`, `changes`, `testing`) via OpenAI `response_format` `json_schema` (strict). If that request is rejected, the client falls back to `json_object`. Markdown is assembled locally with these headings:
+
+```markdown
+## Description
+
+<summary>
+
+### Changes
+
+1. <item>
+
+### Testing
+
+<how to verify>
+```
+
+Headings stay in English even with `--japanise`; the title and section contents follow the requested language.
+
+Before printing or `--create`, output is sanitized (code fences, leading preamble, title quotes/newlines, template remnants such as `---`, `* desc`, `1. change:`, `...`, empty sections) and validated (title empty/multi-line/too long; body missing headings or leftover remnants). Invalid output is retried once with a short fix instruction. There is no infinite retry loop.
+
+`--title` and `--body` still print only the requested part; title and body are generated together in one structured call.
 
 ## License
 

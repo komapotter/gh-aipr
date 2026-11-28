@@ -2,94 +2,46 @@ package main
 
 import "fmt"
 
-type PromptType int
-
-const (
-	PrTitle PromptType = iota
-	PrBody
-)
-
-func CreateOpenAIQuestion(promptType PromptType, diffOutput string, japanise bool) string {
+func systemPrompt(japanise bool) string {
 	if japanise {
-		if promptType == PrTitle {
-			return fmt.Sprintf(`
-コンテキストに基づいて適切なプルリクエストのタイトルを生成してください。
-（タイトルのみを一行で出力してください。）
-（git diffの結果を出力しないでください。）
+		return `git diff から GitHub のプルリクエストタイトルと本文を生成してください。
 
-%s`, diffOutput)
-		} else if promptType == PrBody {
-			return fmt.Sprintf(`
-プルリクエストの説明を生成してください。
-（git diffの結果を出力しないでください。）
+次のキーを持つ JSON オブジェクトだけを返してください:
+- title: 簡潔な1行の PR タイトル（引用符で囲まない）
+- description: 変更の要約（プレースホルダ禁止）
+- changes: 具体的な変更点の配列（1要素が1項目）
+- testing: 検証方法
 
-以下はプルリクエスト説明フォーマットのサンプルです。
-
----
-## 説明
-
-* 説明
-
-### 変更点
-1. 変更点:
-   - 説明
-
-2. 変更点:
-   - 説明
-
-3. 変更点:
-   - 説明
-
-...
-...
-...
-
-### テスト
-- 説明
-
----
-%s`, diffOutput)
-		}
-	} else {
-		if promptType == PrTitle {
-			return fmt.Sprintf(`
-Please generate an appropriate pull request title based on the context.
-(Output only the title in one line.)
-(Do not output the result of git diff)
-
-%s`, diffOutput)
-		} else if promptType == PrBody {
-			return fmt.Sprintf(`
-Please generate an appropriate pull request description based on the context.
-(Do not output the result of git diff)
-
-Here is a sample of pull-request description format.
-
----
-## Description
-
-* desc 
-
-### Changes
-1. change:
-   - desc
-
-2. change:
-   - desc
-
-3. change:
-   - desc
-
-...
-...
-...
-
-### Testing
-- desc
-
----
-%s`, diffOutput)
-		}
+制約:
+- タイトルは空でない1行にする。
+- JSON を Markdown のコードフェンスで囲まない。
+- Markdown 見出しは出力しない。クライアントが ## Description / ### Changes / ### Testing を付与する。
+- "desc" / "change:" / "* desc" / "..." などのプレースホルダや埋め用テンプレを使わない。
+- git diff を再掲・引用しない。
+- diff にないファイルや挙動を作らない。
+- title 以外の内容は日本語で書く。`
 	}
-	return ""
+	return `You generate a GitHub pull request title and body from a git diff.
+
+Return a single JSON object with keys:
+- title: a concise single-line PR title (no surrounding quotes)
+- description: a short summary of the change (no placeholders)
+- changes: an array of concrete change items (one string per item)
+- testing: how a reviewer can verify the change
+
+Constraints:
+- Title must be one non-empty line.
+- Do not wrap the JSON in markdown code fences.
+- Do not include Markdown headings; the client adds ## Description, ### Changes, and ### Testing.
+- Do not use placeholders or fill-in templates such as "desc", "change:", "* desc", or "...".
+- Do not restate or quote the git diff.
+- Do not invent files or behavior that are not in the diff.
+- Write in English.`
+}
+
+func retryFixInstruction(err error, japanise bool) string {
+	if japanise {
+		return fmt.Sprintf("前回の出力は検証に失敗しました: %s。title, description, changes, testing を持つ JSON だけを返してください。コードフェンス・プレースホルダ・diff の再掲は禁止です。", err)
+	}
+	return fmt.Sprintf("Previous output failed validation: %s. Return corrected JSON only (title, description, changes, testing). No markdown fences, no placeholders, no restated diff.", err)
 }
